@@ -4,7 +4,7 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' show Color, Rect;
+import 'dart:ui' show Color, Offset, Rect;
 
 /// `app`: the shell clips the body and adds edge and shadow; `file`: free shape.
 enum IconKind { app, file }
@@ -35,6 +35,17 @@ enum IconAppearance {
 
   bool get isTinted =>
       this == IconAppearance.tinted || this == IconAppearance.tintedDark;
+
+  /// The `appearance` argument of `Thumbnails1.AppIcon`: 0 light, 1 clear, 2 tinted, plus 4 for
+  /// the dark forms.
+  int get serviceWord => switch (this) {
+    IconAppearance.light => 0,
+    IconAppearance.clear => 1,
+    IconAppearance.tinted => 2,
+    IconAppearance.dark => 4,
+    IconAppearance.clearDark => 5,
+    IconAppearance.tintedDark => 6,
+  };
 }
 
 /// The tint of the Tinted renders in silica-icons (icon-format.md, `rendered`): with this tint
@@ -120,6 +131,48 @@ class CalendarText extends IconDynamic {
   final IconText day;
 }
 
+/// What a dynamic layer of a format 2 icon draws (`dynamic.kind` in `icon.json`).
+enum DynamicKind {
+  clockHand('clock-hand'),
+  clockCap('clock-cap'),
+  calendarMonth('calendar-month'),
+  calendarDay('calendar-day');
+
+  const DynamicKind(this.key);
+  final String key;
+}
+
+enum ClockUnit { hour, minute, second }
+
+/// A layer of a format 2 app icon that the host draws live on top of the icon the service
+/// composes (docs/icon-format.md of silica-icons, "Dynamic layers"): the service leaves it out.
+class DynamicLayer {
+  const DynamicLayer({
+    required this.layer,
+    required this.kind,
+    this.unit,
+    this.pivot = const Offset(512, 512),
+    this.minSize = 0,
+    this.clearMode = 'ramp',
+    this.tintedMode = 'ramp',
+  });
+
+  /// The layer's SVG on the 1024 canvas (drawn pointing to 12 for a hand).
+  final IconLayer layer;
+  final DynamicKind kind;
+  final ClockUnit? unit;
+
+  /// The hand turns around this canvas point.
+  final Offset pivot;
+
+  /// Drawn only when the icon canvas in pt is at least this.
+  final double minSize;
+
+  /// The modes of the layer in Clear and Tinted (`hide` leaves it out).
+  final String clearMode;
+  final String tintedMode;
+}
+
 class LayeredIcon {
   const LayeredIcon({
     required this.id,
@@ -127,7 +180,21 @@ class LayeredIcon {
     required this.layers,
     this.dynamic,
     this.rendered = const {},
+    this.format = 1,
+    this.dir,
+    this.dynamicLayers = const [],
   });
+
+  /// 1: background and foreground drawn here; 2: composed by the thumbnail service
+  /// (`Thumbnails1.AppIcon`), the bundled `icon.png` / `icon-dark.png` (in [rendered]) being the
+  /// fallback and [dynamicLayers] drawn live.
+  final int format;
+
+  /// The icon folder (format 2: what the service is asked for).
+  final String? dir;
+
+  /// The layers a format 2 icon draws live.
+  final List<DynamicLayer> dynamicLayers;
 
   final String id;
   final IconKind kind;
@@ -156,6 +223,7 @@ LayeredIcon? parseManifest(String dir, String text, {int depth = 0}) {
   } on FormatException {
     return null;
   }
+  if (json is Map && json['format'] == 2) return _parseFormat2(dir, json);
   if (json is! Map || json['format'] != 1) return null;
   final id = json['id'];
   if (id is! String || !_idPattern.hasMatch(id)) return null;
@@ -210,6 +278,86 @@ LayeredIcon? parseManifest(String dir, String text, {int depth = 0}) {
     layers: layers,
     dynamic: _parseDynamic(json['dynamic'], file, dir),
     rendered: _parseRendered(json['rendered'], dir),
+  );
+}
+
+/// A format 2 app icon: the layers are listed (their SVGs are what the service composes and the
+/// host draws live), the flat fallback PNGs go in `rendered`. Null when the manifest is invalid
+/// or the light fallback is missing.
+LayeredIcon? _parseFormat2(String dir, Map json) {
+  final id = json['id'];
+  if (id is! String || !_idPattern.hasMatch(id) || json['kind'] != 'app') {
+    return null;
+  }
+  String? png(Object? name) =>
+      name is String &&
+          _pngPattern.hasMatch(name) &&
+          File('$dir/$name').existsSync()
+      ? '$dir/$name'
+      : null;
+  final fallback = json['fallback'];
+  final light = png(fallback is Map ? fallback['light'] : 'icon.png');
+  if (light == null) return null;
+  final dark = png(fallback is Map ? fallback['dark'] : 'icon-dark.png');
+  final raw = json['layers'];
+  if (raw is! List || raw.isEmpty || raw.length > 9) return null;
+  final layers = <IconLayer>[];
+  final dynamicLayers = <DynamicLayer>[];
+  double? number(Object? v) => v is num && v.isFinite ? v.toDouble() : null;
+  String mode(Object? spec) =>
+      spec is Map && spec['mode'] is String ? spec['mode'] as String : 'ramp';
+  for (final item in raw) {
+    if (item is! Map) return null;
+    final layerId = item['id'];
+    final role = item['role'];
+    if (layerId is! String ||
+        !_idPattern.hasMatch(layerId) ||
+        role is! String) {
+      return null;
+    }
+    final path = '$dir/layers/$layerId.svg';
+    if (!File(path).existsSync()) return null;
+    final darkPath = '$dir/layers/$layerId-dark.svg';
+    final layer = IconLayer(
+      path,
+      darkPath: File(darkPath).existsSync() ? darkPath : null,
+      shadow: role == 'body' || role == 'dynamic',
+      role: role,
+    );
+    layers.add(layer);
+    final dyn = item['dynamic'];
+    if (dyn is! Map) continue;
+    final kind = DynamicKind.values
+        .where((k) => k.key == dyn['kind'])
+        .firstOrNull;
+    if (kind == null) return null;
+    final unit = ClockUnit.values
+        .where((u) => u.name == dyn['unit'])
+        .firstOrNull;
+    if (kind == DynamicKind.clockHand && unit == null) return null;
+    final pivot = dyn['pivot'];
+    final px = pivot is List && pivot.length == 2 ? number(pivot[0]) : null;
+    final py = pivot is List && pivot.length == 2 ? number(pivot[1]) : null;
+    dynamicLayers.add(
+      DynamicLayer(
+        layer: layer,
+        kind: kind,
+        unit: unit,
+        pivot: Offset(px ?? 512, py ?? 512),
+        minSize: number(item['min_size']) ?? 0,
+        clearMode: mode(item['clear']),
+        tintedMode: mode(item['tinted']),
+      ),
+    );
+  }
+  return LayeredIcon(
+    id: id,
+    kind: IconKind.app,
+    layers: layers,
+    format: 2,
+    dir: dir,
+    dynamicLayers: dynamicLayers,
+    rendered: {IconAppearance.light: light, IconAppearance.dark: dark ?? light},
   );
 }
 

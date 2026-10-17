@@ -465,6 +465,16 @@ class SilicaIcon extends StatelessWidget {
     IconAppearance look,
   ) {
     final isDark = look.isDark;
+    if (icon.format == 2 && icon.dir != null) {
+      return _ServiceApp(
+        icon: icon,
+        canvas: canvas,
+        body: body,
+        side: side,
+        look: look,
+        tint: tint,
+      );
+    }
     final tintColor = tint ?? defaultIconTint;
     final customTint =
         look.isTinted && tintColor.toARGB32() != defaultIconTint.toARGB32();
@@ -783,6 +793,249 @@ class _RimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RimPainter old) => old.body != body || old.dark != dark;
+}
+
+/// A format 2 app icon: the PNG the thumbnail service composes for the look, the tint and the
+/// exact pixel size (`Thumbnails1.AppIcon`), with the body mask, rim and drop shadow of the
+/// host and the dynamic layers (Clock hands) drawn live on top. Until the service answers, and
+/// for good without it (or without a compiled `icon.assets`), the bundled flat `icon.png` /
+/// `icon-dark.png` shows alone: it already has the hands baked in, so none are drawn over it.
+class _ServiceApp extends StatefulWidget {
+  const _ServiceApp({
+    required this.icon,
+    required this.canvas,
+    required this.body,
+    required this.side,
+    required this.look,
+    required this.tint,
+  });
+
+  final LayeredIcon icon;
+  final double canvas;
+  final Rect body;
+  final double side;
+  final IconAppearance look;
+  final Color? tint;
+
+  @override
+  State<_ServiceApp> createState() => _ServiceAppState();
+}
+
+class _ServiceAppState extends State<_ServiceApp> {
+  String? _path;
+  Object? _key;
+  int _generation = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_ServiceApp old) {
+    super.didUpdateWidget(old);
+    _load();
+  }
+
+  void _load() {
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
+    final px = (widget.canvas * dpr).round();
+    final dir = widget.icon.dir;
+    if (dir == null || px <= 0 || !widget.canvas.isFinite) return;
+    final tint = widget.look.isTinted ? widget.tint : null;
+    final key = (dir, px, dpr, widget.look, tint?.toARGB32());
+    if (key == _key) return;
+    _key = key;
+    final generation = ++_generation;
+    SilicaThumbnails.appIcon(
+      dir,
+      px,
+      scale: dpr,
+      look: widget.look,
+      accent: tint,
+    ).then((path) {
+      if (!mounted || generation != _generation) return;
+      // A look that changed keeps the last image until the new one is there.
+      if (path != null) setState(() => _path = path);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final look = widget.look;
+    final canvas = widget.canvas;
+    final path = _path;
+    final flat = widget.icon.renderedFor(
+      look.isDark ? IconAppearance.dark : IconAppearance.light,
+    );
+    return Stack(
+      children: [
+        CustomPaint(
+          size: Size.square(canvas),
+          painter: _DropPainter(widget.body, widget.side),
+        ),
+        ClipPath(
+          clipper: _BodyClipper(widget.body),
+          child: Stack(
+            children: [
+              if (path == null)
+                if (flat != null)
+                  RenderedIconImage(
+                    path: flat,
+                    canvas: canvas,
+                    fallback: SizedBox.square(dimension: canvas),
+                  )
+                else
+                  SizedBox.square(dimension: canvas)
+              else ...[
+                // Clear: the glass blurs what is behind the translucent body.
+                if (look.isClear)
+                  BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: widget.side * clearBlurRatio,
+                      sigmaY: widget.side * clearBlurRatio,
+                    ),
+                    child: SizedBox.square(dimension: canvas),
+                  ),
+                RenderedIconImage(
+                  path: path,
+                  canvas: canvas,
+                  fallback: SizedBox.square(dimension: canvas),
+                ),
+                if (widget.icon.dynamicLayers.isNotEmpty)
+                  _LiveLayers(
+                    layers: widget.icon.dynamicLayers,
+                    canvas: canvas,
+                    look: look,
+                    tint: widget.tint ?? defaultIconTint,
+                  ),
+              ],
+            ],
+          ),
+        ),
+        CustomPaint(
+          size: Size.square(canvas),
+          painter: _RimPainter(widget.body, widget.side, look.isDark),
+        ),
+      ],
+    );
+  }
+}
+
+/// The dynamic layers of a format 2 icon at the current time, bottom to top as listed: a clock
+/// hand turns around its pivot (hours (h mod 12 + m/60 + s/3600) × 30°, minutes (m + s/60) × 6°,
+/// seconds s × 6°), the cap stays. Layers whose `min_size` is above [canvas], or whose mode is
+/// `hide` in the look, are left out; the others are recoloured like the foreground (Clear and
+/// Tinted). Calendar text layers are not drawn yet.
+class _LiveLayers extends StatefulWidget {
+  const _LiveLayers({
+    required this.layers,
+    required this.canvas,
+    required this.look,
+    required this.tint,
+  });
+
+  final List<DynamicLayer> layers;
+  final double canvas;
+  final IconAppearance look;
+  final Color tint;
+
+  @override
+  State<_LiveLayers> createState() => _LiveLayersState();
+}
+
+class _LiveLayersState extends State<_LiveLayers> {
+  Timer? _timer;
+  DateTime _now = DateTime.now();
+
+  bool _drawn(DynamicLayer l) {
+    if (l.minSize > widget.canvas) return false;
+    final mode = widget.look.isClear
+        ? l.clearMode
+        : widget.look.isTinted
+        ? l.tintedMode
+        : 'keep';
+    return mode != 'hide';
+  }
+
+  bool get _seconds =>
+      widget.layers.any((l) => l.unit == ClockUnit.second && _drawn(l));
+
+  @override
+  void initState() {
+    super.initState();
+    _schedule();
+  }
+
+  @override
+  void didUpdateWidget(_LiveLayers old) {
+    super.didUpdateWidget(old);
+    _schedule();
+  }
+
+  void _schedule() {
+    _timer?.cancel();
+    _timer = Timer.periodic(
+      _seconds ? const Duration(seconds: 1) : const Duration(seconds: 20),
+      (_) => setState(() => _now = DateTime.now()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  double _degrees(ClockUnit unit) {
+    final s = _now.second.toDouble();
+    final m = _now.minute + s / 60;
+    return switch (unit) {
+      ClockUnit.hour => (_now.hour % 12 + m / 60) * 30,
+      ClockUnit.minute => m * 6,
+      ClockUnit.second => s * 6,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final look = widget.look;
+    final k = widget.canvas / canvasSide;
+    final filter = foregroundFilter(look, widget.tint);
+    final children = <Widget>[];
+    for (final l in widget.layers) {
+      if (!_drawn(l)) continue;
+      Widget art = _svg(l.layer.pathFor(dark: look.isDark), widget.canvas);
+      switch (l.kind) {
+        case DynamicKind.clockHand:
+          final unit = l.unit;
+          if (unit == null) continue;
+          art = Transform.rotate(
+            angle: _degrees(unit) * math.pi / 180,
+            origin: Offset(l.pivot.dx * k, l.pivot.dy * k),
+            alignment: Alignment.topLeft,
+            child: art,
+          );
+        case DynamicKind.clockCap:
+          break;
+        case DynamicKind.calendarMonth || DynamicKind.calendarDay:
+          continue;
+      }
+      final keep = look.isClear
+          ? l.clearMode == 'keep'
+          : look.isTinted && l.tintedMode == 'keep';
+      children.add(
+        filter == null || keep
+            ? art
+            : ColorFiltered(colorFilter: filter, child: art),
+      );
+    }
+    return SizedBox.square(
+      dimension: widget.canvas,
+      child: Stack(children: children),
+    );
+  }
 }
 
 /// The hands at the current time: hours (h mod 12 + m/60 + s/3600) × 30°, minutes

@@ -113,6 +113,64 @@ abstract final class SilicaThumbnails {
     }
   }
 
+  /// The icon of an app composed by the service (`Thumbnails1.AppIcon`) from the
+  /// `icon/icon.assets` in [iconDir] (the absolute `X-Silica-Icon` folder), at exactly [sizePx]
+  /// device pixels, in [look] and (Tinted) with [accent]. The layers that move (Clock hands) are
+  /// not in the PNG: the caller draws them. Null when the service is not there or the app has no
+  /// compiled icon (the caller keeps the bundled `icon.png`). Equal requests in flight share one
+  /// call.
+  static Future<String?> appIcon(
+    String iconDir,
+    int sizePx, {
+    double scale = 1,
+    IconAppearance look = IconAppearance.light,
+    Color? accent,
+  }) {
+    if (sizePx <= 0 ||
+        !scale.isFinite ||
+        scale <= 0 ||
+        !iconDir.startsWith('/')) {
+      return Future.value();
+    }
+    // 0: the service's default accent. Only the tinted looks use it.
+    final rgb = look.isTinted && accent != null
+        ? accent.toARGB32() & 0xFFFFFF
+        : 0;
+    final key = '$iconDir $sizePx $scale ${look.serviceWord} $rgb';
+    return _pendingApps[key] ??=
+        _requestApp(iconDir, sizePx, scale, look.serviceWord, rgb).whenComplete(
+          () {
+            _pendingApps.remove(key);
+          },
+        );
+  }
+
+  static final Map<String, Future<String?>> _pendingApps = {};
+
+  static Future<String?> _requestApp(
+    String iconDir,
+    int sizePx,
+    double scale,
+    int appearance,
+    int accent,
+  ) async {
+    try {
+      final reply = await _call('AppIcon', 'suduu', [
+        iconDir,
+        sizePx,
+        scale,
+        appearance,
+        accent,
+      ]);
+      final path = reply.isEmpty ? null : reply.first;
+      return path is String && path.isNotEmpty ? path : null;
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
   /// Tells the service that [files] changed, so it forgets their thumbnails.
   static Future<void> invalidate(List<Uri> files) async {
     if (files.isEmpty) return;
