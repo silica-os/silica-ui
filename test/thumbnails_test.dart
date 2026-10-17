@@ -254,4 +254,32 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'SilicaIcon(ServiceSource) asks the service for the whole canvas',
+    (tester) async {
+      Map? sent;
+      messenger.setMockMethodCallHandler(SilicaThumbnails.channel, (
+        call,
+      ) async {
+        sent = call.arguments as Map;
+        return ['', false];
+      });
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            child: SilicaIcon(
+              ServiceSource(file, isFolder: true),
+              side: 32,
+              env: const {'SILICA_ICONS_DIR': '/none', 'HOME': '/none'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect((sent?['args'] as List).sublist(1), [96, 3.0, 1]);
+      expect(find.byType(SilicaFileIcon), findsOneWidget);
+    },
+  );
 }

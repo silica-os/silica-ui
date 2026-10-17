@@ -22,6 +22,7 @@ export 'src/icons/silica_icon.dart'
         IconSource,
         LayeredSource,
         FlatSource,
+        ServiceSource,
         IconShadow,
         iconBodyPath;
 export 'src/icons/file_icons.dart';

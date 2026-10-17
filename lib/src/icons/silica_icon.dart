@@ -14,6 +14,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../silica_ui.dart' show uiFontFamily, uiText;
 import 'file_icons.dart';
+import '../thumbnails.dart';
 import 'silica_icons.dart';
 
 /// Icon canvas: 1024, body 824 at 100 from the edge, square keyline 600.
@@ -262,6 +263,28 @@ class LayeredSource extends IconSource {
   final LayeredIcon icon;
 }
 
+/// A file or folder drawn by the system (`Thumbnails1.Icon`): the daemon composes kind, handling
+/// app, folder colour and symbol at the exact pixel size; until it answers the plain generic
+/// layers show. silica_ui composes nothing itself.
+class ServiceSource extends IconSource {
+  const ServiceSource(
+    this.file, {
+    this.isFolder = false,
+    this.preview = false,
+    this.revision,
+  });
+
+  /// The file or folder, as a `file://` URI.
+  final Uri file;
+  final bool isFolder;
+
+  /// Allow the preview of the content (images, PDF) instead of the composed icon.
+  final bool preview;
+
+  /// Changes when the icon may have changed in place (see `SilicaFileIcon.revision`).
+  final Object? revision;
+}
+
 /// An already composed SVG or PNG file (freedesktop theme).
 class FlatSource extends IconSource {
   const FlatSource(this.path);
@@ -293,6 +316,7 @@ class SilicaIcon extends StatelessWidget {
       !besideApps &&
       switch (source) {
         LayeredSource(:final icon) => icon.kind != IconKind.app,
+        ServiceSource() => true,
         FlatSource() => false,
       };
 
@@ -350,12 +374,27 @@ class SilicaIcon extends StatelessWidget {
             if (layer.when == null) _svg(layer.pathFor(dark: isDark), canvas),
         ],
       ),
+      ServiceSource(
+        :final file,
+        :final isFolder,
+        :final preview,
+        :final revision,
+      ) =>
+        SilicaFileIcon(
+          file: file,
+          size: canvas,
+          isFolder: isFolder,
+          preview: preview,
+          revision: revision,
+          env: env,
+        ),
       FlatSource(:final path) => _flat(path, canvas, body, isDark),
     };
     // Files, folders, volumes and Trash are flat: the context shadow is added by whoever
     // draws them (icon-format.md › "What does NOT go in the layers"), under the shape of the drawing.
     final grounded = switch (source) {
       LayeredSource(:final icon) => icon.kind != IconKind.app,
+      ServiceSource() => true,
       FlatSource() => false,
     };
     final shown = badges.isEmpty
