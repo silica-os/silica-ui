@@ -121,7 +121,7 @@ class _AmalfiValueFieldState extends State<AmalfiValueField> {
       cursorWidth: 1,
       showCursor: enabled,
       backgroundCursorColor: colors.textTertiary,
-      selectionColor: colors.accentAmalfiSoft,
+      selectionColor: AmalfiTheme.of(context).selectionColor,
       enableInteractiveSelection: enabled,
       inputFormatters: widget.inputFormatters,
       keyboardType: widget.keyboardType,

@@ -8,6 +8,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../amalfi/components/scrollbars.dart';
 import 'common.dart';
 
 /// Overlay (shown while scrolling, the default with a trackpad) or always visible (legacy).
@@ -121,12 +122,14 @@ class _SilicaScrollbarState extends State<SilicaScrollbar> {
   }
 }
 
-/// The scroll behavior of Silica apps: elastic ends and [SilicaScrollbar] on every scrollable.
-/// Use it in `ScrollConfiguration` or `WidgetsApp.scrollBehavior`.
+/// The scroll behavior of Silica apps: elastic ends and the Amalfi scroll bar on every
+/// scrollable, in the style chosen in Settings (Appearance › show scroll bars) unless [style]
+/// forces one. Use it in `ScrollConfiguration` or `WidgetsApp.scrollBehavior`.
 class SilicaScrollBehavior extends ScrollBehavior {
-  const SilicaScrollBehavior({this.style = ScrollerStyle.overlay});
+  const SilicaScrollBehavior({this.style});
 
-  final ScrollerStyle style;
+  /// Null: the system look's.
+  final ScrollerStyle? style;
 
   @override
   Set<PointerDeviceKind> get dragDevices => const {
@@ -145,10 +148,13 @@ class SilicaScrollBehavior extends ScrollBehavior {
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) => SilicaScrollbar(
-    controller: details.controller,
-    style: style,
+  ) => AmalfiScrollbar(
     axis: axisDirectionToAxis(details.direction),
+    style: switch (style) {
+      null => null,
+      ScrollerStyle.overlay => AmalfiScrollbarStyle.overlay,
+      ScrollerStyle.legacy => AmalfiScrollbarStyle.legacy,
+    },
     child: child,
   );
 

@@ -144,7 +144,7 @@ class AmalfiEditableState extends State<AmalfiEditable>
       backgroundCursorColor: colors.textTertiary,
       // Assumption: the kit has no selection master; the soft accent is the selection of
       // lists and menus.
-      selectionColor: colors.accentAmalfiSoft,
+      selectionColor: AmalfiTheme.of(context).selectionColor,
       rendererIgnoresPointer: true,
       enableInteractiveSelection: widget.enabled,
       inputFormatters: widget.inputFormatters,

@@ -16,6 +16,7 @@
 
 import 'package:flutter/widgets.dart';
 
+import 'system_look.dart' show SystemLookScope;
 import 'window.dart' show SilicaWindow;
 
 /// How an app or a window picks between the light and the dark appearance.
@@ -172,6 +173,9 @@ class _SilicaAppearanceScopeState extends State<SilicaAppearanceScope> {
         );
       }
     }
-    return _ResolvedAppearance(brightness: brightness, child: child);
+    return _ResolvedAppearance(
+      brightness: brightness,
+      child: SystemLookScope(child: child),
+    );
   }
 }

@@ -627,6 +627,31 @@ class _Colors {
     o.writeln();
     _doc(
       o,
+      'These colours with the accent replaced: [accent] for `Accent/Amalfi`, [pressed] for\n'
+      '`Accent/Amalfi Pressed` and [soft] for `Accent/Amalfi Soft` (the accent chosen in the\n'
+      'system settings).',
+    );
+    o.writeln(
+      '  AmalfiColors withAccent(Color accent, Color pressed, Color soft) =>',
+    );
+    o.writeln('      AmalfiColors._(');
+    o.writeln('        brightness: brightness,');
+    for (final id in system.values) {
+      final value = switch (id) {
+        'accentAmalfi' => 'accent',
+        'accentAmalfiPressed' => 'pressed',
+        'accentAmalfiSoft' => 'soft',
+        _ => id,
+      };
+      o.writeln('        $id: $value,');
+    }
+    for (final app in appList) {
+      o.writeln('        ${app.field}: ${app.field},');
+    }
+    o.writeln('      );');
+    o.writeln();
+    _doc(
+      o,
       'Every colour token name, apps included, in the order of `tokens.json`.',
     );
     o.writeln('  static const List<String> tokenNames = [');
