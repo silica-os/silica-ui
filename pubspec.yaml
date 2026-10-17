@@ -31,6 +31,8 @@ flutter:
           weight: 600
         - asset: fonts/Inter-Bold.ttf
           weight: 700
+        - asset: fonts/Inter-Black.ttf
+          weight: 900
     - family: SilicaSymbols
       fonts:
         - asset: fonts/SilicaSymbols-Regular.otf

@@ -130,4 +130,128 @@ void main() {
     expect(find.byType(Image), findsNothing);
     expect(File('/nonexistent').existsSync(), isFalse);
   });
+
+  test(
+    'Icon carries URI, exact pixels, scale and the no-preview flag',
+    () async {
+      final calls = <Map>[];
+      messenger.setMockMethodCallHandler(SilicaThumbnails.channel, (
+        call,
+      ) async {
+        calls.add(call.arguments as Map);
+        return ['/cache/silica/icons/128/a.png', false];
+      });
+      final icon = await SilicaThumbnails.icon(
+        file,
+        128,
+        scale: 2,
+        noPreview: true,
+      );
+      expect(icon?.path, '/cache/silica/icons/128/a.png');
+      expect(icon?.preview, isFalse);
+      expect(calls.single['method'], 'Icon');
+      expect(calls.single['signature'], 'sudu');
+      expect(calls.single['args'], [
+        'file:///home/a/My%20File.png',
+        128,
+        2.0,
+        1,
+      ]);
+      messenger.setMockMethodCallHandler(
+        SilicaThumbnails.channel,
+        (call) async => ['', false],
+      );
+      expect(await SilicaThumbnails.icon(file, 64), isNull);
+      expect(await SilicaThumbnails.icon(file, 0), isNull);
+    },
+  );
+
+  testWidgets('SilicaFileIcon: plain layers until the PNG, then the PNG', (
+    tester,
+  ) async {
+    final root = Directory.systemTemp.createTempSync('file-icon-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">'
+        '<rect width="824" height="824" fill="#fff"/></svg>';
+    final dir = Directory('${root.path}/files/file-generic')
+      ..createSync(recursive: true);
+    for (final n in ['back', 'front']) {
+      File('${dir.path}/$n.svg').writeAsStringSync(svg);
+    }
+    File('${dir.path}/icon.json').writeAsStringSync(
+      '{"format":1,"id":"file-generic","name":"f","kind":"file","layers":['
+      '{"role":"back","file":"back.svg"},{"role":"front","file":"front.svg"}]}',
+    );
+    final gate = Completer<List<Object?>>();
+    Map? sent;
+    messenger.setMockMethodCallHandler(SilicaThumbnails.channel, (call) {
+      sent = call.arguments as Map;
+      return gate.future;
+    });
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: const MediaQueryData(devicePixelRatio: 2),
+          child: SilicaFileIcon(
+            file: file,
+            size: 48,
+            env: {'SILICA_ICONS_DIR': root.path},
+          ),
+        ),
+      ),
+    );
+    expect((sent?['args'] as List).sublist(1), [96, 2.0, 0]);
+    expect(find.byType(SilicaIcon), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+    gate.complete(['/cache/silica/icons/96/a.png', false]);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(SilicaIcon), findsNothing);
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(
+      (image.image as FileImage).file.path,
+      '/cache/silica/icons/96/a.png',
+    );
+    expect(image.width, 48);
+  });
+
+  testWidgets(
+    'SilicaFileIcon without the pack or the service is an empty box',
+    (tester) async {
+      messenger.setMockMethodCallHandler(SilicaThumbnails.channel, (
+        call,
+      ) async {
+        throw PlatformException(code: 'x');
+      });
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            child: SilicaFileIcon(
+              file: file,
+              size: 32,
+              isFolder: true,
+              env: const {
+                'SILICA_ICONS_DIR': '/nonexistent',
+                'HOME': '/nonexistent',
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(Image), findsNothing);
+      expect(
+        tester.getSize(
+          find.descendant(
+            of: find.byType(SilicaFileIcon),
+            matching: find.byType(SizedBox),
+          ),
+        ),
+        const Size(32, 32),
+      );
+    },
+  );
 }

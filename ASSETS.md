@@ -10,6 +10,7 @@ Every non-code file has a row here: author, license, source. Licenses allowed as
 | `fonts/OFL.txt` | The Inter Project Authors | OFL 1.1 | https://github.com/rsms/inter |
 | `fonts/Inter-Medium.ttf` | Rasmus Andersson and The Inter Project Authors | OFL 1.1 (`fonts/OFL.txt`) | https://github.com/rsms/inter/releases/tag/v4.1 |
 | `fonts/Inter-Bold.ttf` | Rasmus Andersson and The Inter Project Authors | OFL 1.1 (`fonts/OFL.txt`) | https://github.com/rsms/inter/releases/tag/v4.1 |
+| `fonts/Inter-Black.ttf` | Rasmus Andersson and The Inter Project Authors | OFL 1.1 (`fonts/OFL.txt`) | https://github.com/rsms/inter/releases/tag/v4.1 |
 | `fonts/SilicaSymbols-Regular.otf`, `fonts/SilicaSymbols-Light.otf`, `fonts/SilicaSymbols-Semibold.otf` | the Silica project | CC BY-SA 4.0 | https://github.com/silica-os/silica-icons (`fonts/`, branch `amalfi-icons` at `ebc580b`), copied by `tool/sync_symbols.dart` |
 | `fonts/JetBrainsMono-Regular.ttf` | The JetBrains Mono Project Authors | OFL 1.1 (`fonts/JetBrainsMono-OFL.txt`) | https://github.com/JetBrains/JetBrainsMono/releases/tag/v2.304 (`fonts/ttf/`) |
 | `fonts/JetBrainsMono-OFL.txt` | The JetBrains Mono Project Authors | OFL 1.1 | https://github.com/JetBrains/JetBrainsMono/releases/tag/v2.304 |

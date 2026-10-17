@@ -7,6 +7,9 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'icons/silica_icon.dart';
+import 'icons/silica_icons.dart';
+
 /// The system thumbnail service over the embedder's `silica/dbus` channel. Outside Silica (no
 /// channel, no daemon) there are no thumbnails and callers keep their fallback.
 abstract final class SilicaThumbnails {
@@ -54,6 +57,55 @@ abstract final class SilicaThumbnails {
       final reply = await _call('Thumbnail', 'su', [file.toString(), sizePx]);
       final path = reply.isEmpty ? null : reply.first;
       return path is String && path.isNotEmpty ? path : null;
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  /// The icon of [file] (a file or a folder) at exactly [sizePx] device pixels, composed by the
+  /// service (`Thumbnails1.Icon`): the preview when there is one (unless [noPreview]), else the
+  /// composed file or folder icon. [scale] is the device pixel ratio, which sets the symbol
+  /// weight and the label. Null when the service is not there or has nothing. Equal requests in
+  /// flight share one call.
+  static Future<ComposedIcon?> icon(
+    Uri file,
+    int sizePx, {
+    double scale = 1,
+    bool noPreview = false,
+  }) {
+    if (sizePx <= 0 || !scale.isFinite || scale <= 0) return Future.value();
+    final key = '$sizePx $scale $noPreview $file';
+    return _pendingIcons[key] ??= _requestIcon(file, sizePx, scale, noPreview)
+        .whenComplete(() {
+          _pendingIcons.remove(key);
+        });
+  }
+
+  static final Map<String, Future<ComposedIcon?>> _pendingIcons = {};
+
+  /// `Icon` flag: no preview, only the composed icon.
+  static const int iconNoPreview = 1;
+
+  static Future<ComposedIcon?> _requestIcon(
+    Uri file,
+    int sizePx,
+    double scale,
+    bool noPreview,
+  ) async {
+    try {
+      final reply = await _call('Icon', 'sudu', [
+        file.toString(),
+        sizePx,
+        scale,
+        noPreview ? iconNoPreview : 0,
+      ]);
+      if (reply.length < 2) return null;
+      final path = reply[0];
+      final preview = reply[1];
+      if (path is! String || path.isEmpty) return null;
+      return ComposedIcon(path, preview == true);
     } on PlatformException {
       return null;
     } on MissingPluginException {
@@ -152,6 +204,127 @@ class _SilicaThumbnailState extends State<SilicaThumbnail> {
       filterQuality: FilterQuality.medium,
       gaplessPlayback: true,
       errorBuilder: (_, _, _) => widget.fallback,
+    );
+  }
+}
+
+/// The reply of `Thumbnails1.Icon`: the PNG and whether it is a preview of the content (an image
+/// or a PDF) rather than the composed icon.
+class ComposedIcon {
+  const ComposedIcon(this.path, this.preview);
+
+  final String path;
+  final bool preview;
+}
+
+/// The icon of a file or a folder as the system draws it everywhere: the preview of the content
+/// or the composed icon of the daemon (kind, handling app, folder colour and symbol), at exactly
+/// `size * devicePixelRatio` pixels. Until the PNG is there, and for good without the service,
+/// it shows [fallback]; by default the plain generic layers of silica-icons (the sheet, or the
+/// folder) at the exact size, or an empty box when the pack is not installed. silica_ui composes
+/// nothing itself.
+class SilicaFileIcon extends StatefulWidget {
+  const SilicaFileIcon({
+    super.key,
+    required this.file,
+    required this.size,
+    this.isFolder = false,
+    this.preview = true,
+    this.fallback,
+    this.revision,
+    this.fit = BoxFit.contain,
+    this.env,
+  });
+
+  /// The file or folder, as a `file://` URI.
+  final Uri file;
+
+  /// The edge of the box, in logical pixels.
+  final double size;
+
+  /// Chooses the plain layers of the default fallback: the folder instead of the sheet.
+  final bool isFolder;
+
+  /// Allow the preview of the content (images, PDF); false: always the composed icon.
+  final bool preview;
+
+  /// Replaces the default fallback; sized by the caller.
+  final Widget? fallback;
+
+  /// Changes when the icon may have changed without the path or size changing (content of a
+  /// folder, a new colour); a different value asks the service again.
+  final Object? revision;
+
+  final BoxFit fit;
+
+  /// The environment for finding silica-icons (tests).
+  final Map<String, String>? env;
+
+  @override
+  State<SilicaFileIcon> createState() => _SilicaFileIconState();
+}
+
+class _SilicaFileIconState extends State<SilicaFileIcon> {
+  String? _path;
+  int _generation = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(SilicaFileIcon old) {
+    super.didUpdateWidget(old);
+    if (old.file != widget.file ||
+        old.size != widget.size ||
+        old.preview != widget.preview ||
+        old.revision != widget.revision) {
+      if (old.file != widget.file) _path = null;
+      _load();
+    }
+  }
+
+  void _load() {
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
+    final px = (widget.size * dpr).round();
+    if (px <= 0 || !widget.size.isFinite) return;
+    final generation = ++_generation;
+    SilicaThumbnails.icon(
+      widget.file,
+      px,
+      scale: dpr,
+      noPreview: !widget.preview,
+    ).then((icon) {
+      if (!mounted || generation != _generation || icon == null) return;
+      setState(() => _path = icon.path);
+    });
+  }
+
+  Widget _plain() {
+    final icon = findSilicaIcon(
+      widget.isFolder ? 'folder-generic' : 'file-generic',
+      env: widget.env,
+    );
+    final size = widget.size.isFinite ? widget.size : 0.0;
+    if (icon == null) return SizedBox.square(dimension: size);
+    return SilicaIcon(LayeredSource(icon), side: size, env: widget.env);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = _path;
+    final fallback = widget.fallback ?? _plain();
+    if (path == null) return fallback;
+    return Image.file(
+      File(path),
+      width: widget.size,
+      height: widget.size,
+      fit: widget.fit,
+      filterQuality: FilterQuality.medium,
+      gaplessPlayback: true,
+      errorBuilder: (_, _, _) => fallback,
     );
   }
 }

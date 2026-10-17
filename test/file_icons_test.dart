@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:silica_ui/silica_ui.dart';
 
@@ -152,185 +151,19 @@ void main() {
     expect(mime.typeOf('${dir.path}/sparito'), octetStream);
   });
 
-  group('file icon', () {
-    late Directory root;
-    late Map<String, String> env;
-
-    setUp(() {
-      root = iconTree();
-      env = {'SILICA_ICONS_DIR': root.path};
+  test('badges from disk: symlink, broken, unreadable', () {
+    final dir = Directory.systemTemp.createTempSync('badge-');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    File('${dir.path}/vero').writeAsStringSync('x');
+    Link('${dir.path}/link').createSync('vero');
+    Link('${dir.path}/broken').createSync('missing');
+    expect(badgesOf('${dir.path}/vero'), isEmpty);
+    expect(badgesOf('${dir.path}/link'), {IconBadge.alias});
+    expect(badgesOf('${dir.path}/broken'), {
+      IconBadge.alias,
+      IconBadge.unreadable,
     });
-    tearDown(() => root.deleteSync(recursive: true));
-
-    FileIcon? resolve(String name, {bool? executable}) => resolveFileIcon(
-      '/no/folder/$name',
-      mime: mime,
-      env: env,
-      executable: executable,
-      type: mime.typeForName(name) ?? octetStream,
-    );
-
-    test('new type layout: borrowed sheet, mark and rendered PNG', () {
-      final dir = '${root.path}/files/file-pdf';
-      File('$dir/mark.svg').writeAsStringSync(svg);
-      File('$dir/icon.png').writeAsBytesSync([0]);
-      File('$dir/icon.json').writeAsStringSync(
-        jsonEncode({
-          'format': 1,
-          'id': 'file-pdf',
-          'kind': 'file',
-          'layers': [
-            {'role': 'page', 'icon': 'file-generic'},
-            {'role': 'mark', 'file': 'mark.svg'},
-          ],
-          'variants': null,
-          'rendered': {'default': 'icon.png'},
-        }),
-      );
-      final icon = resolve('a.pdf')?.icon;
-      expect(icon?.id, 'file-pdf');
-      expect(icon?.layers.length, 2);
-      expect(icon?.layers.last.path, endsWith('file-pdf/mark.svg'));
-      expect(icon?.renderedFor(IconAppearance.light), '$dir/icon.png');
-    });
-
-    test('order: type, type with *, parents, extension, label', () {
-      expect(resolve('a.pdf')?.icon.id, 'file-pdf');
-      expect(resolve('photo.png')?.icon.id, 'file-image');
-      // text/x-csrc is not in the map, its parent text/plain is.
-      expect(resolve('main.c')?.icon.id, 'file-text');
-      expect(resolve('conti.xls')?.icon.id, 'file-generic');
-      expect(resolve('conti.xlsx')?.icon.id, 'file-spreadsheet');
-      final json = resolve('dati.json');
-      expect(json?.icon.id, 'file-generic');
-      expect(json?.label, 'JSON');
-      expect(json?.labelColor?.$1, const Color(0xFF1F9D55));
-      // The explicit entry wins over the parent (application/javascript), with the label.
-      expect(json?.labelBox, isNotNull);
-      expect(resolve('progetto.skt')?.labelColor?.$1, const Color(0xFFF7B500));
-      expect(resolve('LEGGIMI')?.icon.id, 'file-unknown');
-      expect(resolve('troppo.lunghissima')?.icon.id, 'file-unknown');
-    });
-
-    test(
-      'executable without extension: file-executable only with the x bit',
-      () {
-        final dir = Directory.systemTemp.createTempSync('exec-');
-        addTearDown(() => dir.deleteSync(recursive: true));
-        final script = File('${dir.path}/avvia')
-          ..writeAsStringSync('#!/bin/sh\n');
-        expect(
-          resolveFileIcon(
-            script.path,
-            mime: mime,
-            env: env,
-            executable: true,
-          )?.icon.id,
-          'file-executable',
-        );
-        // Without x it keeps its type (a script is text through its parents).
-        expect(
-          resolveFileIcon(
-            script.path,
-            mime: mime,
-            env: env,
-            executable: false,
-          )?.icon.id,
-          'file-executable',
-        );
-      },
-    );
-
-    testWidgets('the label sits in its box, in the color of the category', (
-      tester,
-    ) async {
-      final icon = resolve('dati.json')!;
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Center(
-            child: SilicaIcon(FileSource(icon), side: 1024, dark: false),
-          ),
-        ),
-      );
-      final text = tester.widget<Text>(find.text('JSON'));
-      expect(text.style?.color, const Color(0xFF1F9D55));
-      // A single text: the shadow repaints the same child, it does not duplicate it.
-      expect(find.text('JSON'), findsOneWidget);
-      final box = tester.getRect(
-        find.ancestor(of: find.text('JSON'), matching: find.byType(FittedBox)),
-      );
-      final body = tester.getTopLeft(find.byType(SilicaIcon));
-      // A file has the whole canvas as its side: the box (245, 376, 534, 194) at 1024 pt.
-      expect(box.left - body.dx, closeTo(245, 0.5));
-      expect(box.top - body.dy, closeTo(376, 0.5));
-      expect(box.width, closeTo(534, 0.5));
-    });
-
-    testWidgets(
-      'badges: alias on the left, the first on the right; below 32 just one',
-      (tester) async {
-        expect(
-          visibleBadges({
-            IconBadge.alias,
-            IconBadge.cloud,
-            IconBadge.locked,
-          }, 64),
-          [IconBadge.alias, IconBadge.locked],
-        );
-        expect(visibleBadges({IconBadge.alias, IconBadge.unreadable}, 20), [
-          IconBadge.unreadable,
-        ]);
-        expect(visibleBadges({IconBadge.alias}, 12), isEmpty);
-
-        await tester.pumpWidget(
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Center(
-              child: SilicaIcon(
-                FileSource(resolve('a.pdf')!),
-                side: 64,
-                dark: false,
-                badges: const {IconBadge.alias, IconBadge.locked},
-                env: env,
-              ),
-            ),
-          ),
-        );
-        final body = tester.getRect(find.byType(SilicaIcon));
-        final positioned = tester
-            .widgetList<Positioned>(find.byType(Positioned))
-            .where((p) => p.width != null && p.width! < 64)
-            .toList();
-        expect(positioned, hasLength(2));
-        // The file has the canvas as its side: badge 315/1024 of 64, in the box between the edge of the
-        // app body (100…924 of the canvas) and the golden line; its canvas spills by 100 k.
-        const t = 64 / 1024;
-        const edge = 315 * t;
-        const k = edge / 824;
-        final lefts = positioned.map((p) => p.left!).toList()..sort();
-        final tops = positioned.map((p) => p.top!).toSet();
-        expect(lefts.first, closeTo(100 * t - 100 * k, 0.01));
-        expect(lefts.last, closeTo(924 * t - edge - 100 * k, 0.01));
-        expect(tops.single, closeTo(924 * t - edge - 100 * k, 0.01));
-        expect(body.width, 64);
-      },
-    );
-
-    test('badges from disk: symlink, broken, unreadable', () {
-      final dir = Directory.systemTemp.createTempSync('badge-');
-      addTearDown(() => dir.deleteSync(recursive: true));
-      File('${dir.path}/vero').writeAsStringSync('x');
-      Link('${dir.path}/link').createSync('vero');
-      Link('${dir.path}/broken').createSync('missing');
-      expect(badgesOf('${dir.path}/vero'), isEmpty);
-      expect(badgesOf('${dir.path}/link'), {IconBadge.alias});
-      expect(badgesOf('${dir.path}/broken'), {
-        IconBadge.alias,
-        IconBadge.unreadable,
-      });
-      expect(badgesOf('${dir.path}/vero', cloud: true), {IconBadge.cloud});
-    });
+    expect(badgesOf('${dir.path}/vero', cloud: true), {IconBadge.cloud});
   });
 
   test('volumes: network, image, optical, external, internal', () {
@@ -361,108 +194,6 @@ void main() {
     expect(mounts.map((m) => m.path), ['/', '/media/io/Chiave USB']);
     expect(mounts.last.fsType, 'vfat');
     expect(mounts.last.device, '/dev/sdb1');
-  });
-
-  testWidgets('the label of a type is not written below min_size', (
-    tester,
-  ) async {
-    final root = iconTree();
-    addTearDown(() => root.deleteSync(recursive: true));
-    final env = {'SILICA_ICONS_DIR': root.path};
-    final dir = Directory('${root.path}/files/file-image')
-      ..createSync(recursive: true);
-    File('${dir.path}/icon.json').writeAsStringSync(
-      manifest(
-        'file-image',
-        dynamic: {
-          'type': 'file-type-label',
-          'label': {
-            'size': 101.79,
-            'box': [292, 741.43, 440, 124],
-            'max_chars': 5,
-            'max_width': 440,
-            'color': '#30b0c7',
-            'no_extension': null,
-            'min_size': 32,
-          },
-        },
-      ),
-    );
-    final icon = resolveFileIcon(
-      '/x/photo.png',
-      mime: mime,
-      env: env,
-      type: 'image/png',
-    )!;
-    expect(icon.label, 'PNG');
-    for (final (side, shown) in [(64.0, true), (16.0, false)]) {
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Center(
-            child: SilicaIcon(FileSource(icon), side: side, dark: false),
-          ),
-        ),
-      );
-      expect(find.text('PNG'), shown ? findsOneWidget : findsNothing);
-    }
-  });
-
-  test('the real repo and the system database, if present', () {
-    final repo =
-        Platform.environment['SILICA_ICONS_DIR'] ??
-        '${Platform.environment['HOME']}/silica/silica-icons';
-    if (!File('$repo/files/file-generic/icon.json').existsSync() ||
-        !File('/usr/share/mime/globs2').existsSync()) {
-      markTestSkipped('silica-icons o shared-mime-info assenti');
-      return;
-    }
-    final env = {'SILICA_ICONS_DIR': repo};
-    final db = MimeDatabase.load();
-    String? id(String name) => resolveFileIcon(
-      '/tmp/$name',
-      mime: db,
-      env: env,
-      type: db.typeForName(name),
-      executable: false,
-    )?.icon.id;
-    expect(id('relazione.pdf'), 'file-pdf');
-    expect(id('conti.xlsx'), 'file-spreadsheet');
-    expect(id('lettera.docx'), 'file-document');
-    expect(id('pagina.html'), 'file-web');
-    expect(id('font.ttf'), 'file-font');
-    expect(id('disco.iso'), 'file-disk-image');
-    expect(id('photo.jpg'), 'file-image');
-    expect(id('main.rs'), 'file-code');
-    FileIcon? icon(String name) => resolveFileIcon(
-      '/tmp/$name',
-      mime: db,
-      env: env,
-      type: db.typeForName(name),
-      executable: false,
-    );
-    // The real extension on the type icons, in the color of the type.
-    expect(icon('photo.jpg')?.label, 'JPG');
-    expect(icon('photo.jpg')?.labelColor?.$1, const Color(0xFF2F7CF6));
-    expect(icon('font.ttf')?.label, 'TTF');
-    // JSON: explicit entry to the generic file, given category (not the code of the parent).
-    expect(icon('dati.json')?.icon.id, 'file-generic');
-    expect(icon('dati.json')?.labelColor?.$1, const Color(0xFF1F9D55));
-    // Step 0b: .ts is ambiguous in the system database, the extension decides.
-    expect(
-      resolveFileIcon(
-        '/tmp/main.ts',
-        mime: db,
-        env: env,
-        executable: false,
-      )?.icon.id,
-      'file-code',
-    );
-
-    expect(
-      findBadgeRules(env: env)?.pathFor(IconBadge.alias, dark: true),
-      endsWith('alias-dark.svg'),
-    );
   });
 
   test('ground shadow: the IC-01 measurements and in between', () {

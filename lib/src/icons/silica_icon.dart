@@ -15,8 +15,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../silica_ui.dart' show uiFontFamily, uiText;
 import 'file_icons.dart';
 import 'silica_icons.dart';
-import '../amalfi/foundation/symbol.dart'
-    show AmalfiSymbolWeight, silicaSymbolData;
 
 /// Icon canvas: 1024, body 824 at 100 from the edge, square keyline 600.
 const double canvasSide = 1024;
@@ -264,19 +262,6 @@ class LayeredSource extends IconSource {
   final LayeredIcon icon;
 }
 
-/// A folder: the generic folder with symbol and tint, or the plain one
-/// (`resolveFolderIcon`).
-class FolderSource extends IconSource {
-  const FolderSource(this.folder);
-  final FolderIcon folder;
-}
-
-/// A file (`resolveFileIcon`): the icon of the type, or the generic file with the extension.
-class FileSource extends IconSource {
-  const FileSource(this.file);
-  final FileIcon file;
-}
-
 /// An already composed SVG or PNG file (freedesktop theme).
 class FlatSource extends IconSource {
   const FlatSource(this.path);
@@ -307,7 +292,6 @@ class SilicaIcon extends StatelessWidget {
   bool get fullCanvas =>
       !besideApps &&
       switch (source) {
-        FileSource() || FolderSource() => true,
         LayeredSource(:final icon) => icon.kind != IconKind.app,
         FlatSource() => false,
       };
@@ -360,19 +344,18 @@ class SilicaIcon extends StatelessWidget {
       ),
       LayeredSource(:final icon) => Stack(
         children: [
+          // The conditional layers (the sheet of a folder with items) belong to the composed
+          // icon of the daemon, not to this plain one.
           for (final layer in icon.layers)
-            _svg(layer.pathFor(dark: isDark), canvas),
+            if (layer.when == null) _svg(layer.pathFor(dark: isDark), canvas),
         ],
       ),
-      FolderSource(:final folder) => _folder(folder, canvas, isDark),
       FlatSource(:final path) => _flat(path, canvas, body, isDark),
-      FileSource(:final file) => _file(file, canvas, isDark),
     };
     // Files, folders, volumes and Trash are flat: the context shadow is added by whoever
     // draws them (icon-format.md › "What does NOT go in the layers"), under the shape of the drawing.
     final grounded = switch (source) {
       LayeredSource(:final icon) => icon.kind != IconKind.app,
-      FileSource() || FolderSource() => true,
       FlatSource() => false,
     };
     final shown = badges.isEmpty
@@ -430,58 +413,6 @@ class SilicaIcon extends StatelessWidget {
     );
   }
 
-  /// A file: the layers and the label (the extension) in its box, centered on the natural
-  /// line of Inter; wider than the box, the size goes down (`shrink`).
-  Widget _file(FileIcon file, double canvas, bool isDark) {
-    final box = file.labelBox;
-    final label = file.label;
-    final scale = canvas / canvasSide;
-    return Stack(
-      children: [
-        // Type icons of silica-icons ≥ 1.0 ship the sheet and the figure as a rendered PNG
-        // (label still dynamic); older packs compose the SVG layers.
-        if ((isDark ? file.icon.renderedFor(IconAppearance.dark) : null) ??
-                file.icon.renderedFor(IconAppearance.light)
-            case final png?)
-          RenderedIconImage(
-            path: png,
-            canvas: canvas,
-            fallback: Stack(
-              children: [
-                for (final layer in file.icon.layers)
-                  _svg(layer.pathFor(dark: isDark), canvas),
-              ],
-            ),
-          )
-        else
-          for (final layer in file.icon.layers)
-            _svg(layer.pathFor(dark: isDark), canvas),
-        if (box != null && label != null && canvas >= file.labelMinSide)
-          Positioned(
-            left: box.left * scale,
-            top: box.top * scale,
-            width: box.width * scale,
-            height: box.height * scale,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                maxLines: 1,
-                style: TextStyle(
-                  fontFamily: uiFontFamily,
-                  package: 'silica_ui',
-                  fontWeight: FontWeight
-                      .values[(file.labelWeight ~/ 100 - 1).clamp(0, 8)],
-                  fontSize: file.labelSize * scale,
-                  color: isDark ? file.labelColor?.$2 : file.labelColor?.$1,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
   /// An app icon. Default and Dark (and Clear and Tinted with the default tint) draw the
   /// `rendered` PNG of the style when the pack has one; otherwise the SVG layers are composed,
   /// with the glass background or the tint of the style. The body mask, the rim and the drop
@@ -513,9 +444,6 @@ class SilicaIcon extends StatelessWidget {
       CalendarText text => recolored(
         _Calendar(text: text, canvas: canvas, dark: isDark),
       ),
-      FolderSymbol() ||
-      FileLabelRules() ||
-      TypeLabel() ||
       null => const SizedBox.shrink(),
     };
     return Stack(
@@ -619,89 +547,6 @@ class SilicaIcon extends StatelessWidget {
     return SizedBox.square(
       dimension: canvas,
       child: Stack(children: children),
-    );
-  }
-
-  /// The folder: layers, engraved symbol (highlight shifted down, then the symbol) and
-  /// tint on the luminance of the whole (icon-format.md, "Generic folder").
-  Widget _folder(FolderIcon folder, double canvas, bool isDark) {
-    final icon = folder.icon;
-    final dyn = icon.dynamic;
-    final children = <Widget>[
-      for (final layer in icon.layers)
-        _svg(layer.pathFor(dark: isDark), canvas),
-    ];
-    if (dyn is FolderSymbol) {
-      final name = folder.symbol;
-      final band = dyn.bandFor(canvas);
-      final file = name == null || band == null
-          ? null
-          : dyn.symbolFile(name, band.weight);
-      if (band != null && file != null) {
-        final k = canvas / canvasSide;
-        final box = dyn.box;
-        final w = box.width * band.scale * k;
-        final h = box.height * band.scale * k;
-        final left = box.center.dx * k - w / 2;
-        final top = box.center.dy * k - h / 2;
-        final fx = isDark ? dyn.dark : dyn.light;
-        final glyphData = silicaSymbolData(
-          name!,
-          weight: AmalfiSymbolWeight.values.firstWhere(
-            (weight) => weight.folder == band.weight,
-            orElse: () => AmalfiSymbolWeight.regular,
-          ),
-        );
-        Widget glyph(Color color, double opacity, double dy) => Positioned(
-          left: left,
-          top: top + dy,
-          width: w,
-          height: h,
-          child: Opacity(
-            opacity: opacity,
-            // The bundled Silica Symbols font draws it sharp at any size (one glyph, hinted
-            // by the text engine, instead of a rasterised SVG); a symbol the font lacks
-            // (an installed silica-icons newer than the font) falls back to its SVG.
-            child: glyphData == null
-                ? SvgPicture.string(
-                    svgText(file),
-                    width: w,
-                    height: h,
-                    theme: SvgTheme(currentColor: color),
-                  )
-                : SizedBox(
-                    width: w,
-                    height: h,
-                    child: Center(
-                      child: Icon(glyphData, size: w, color: color),
-                    ),
-                  ),
-          ),
-        );
-        if (band.highlight && fx.highlightOpacity > 0) {
-          children.add(
-            glyph(
-              fx.highlight,
-              fx.highlightOpacity,
-              math.max(fx.offset * k, 0.5),
-            ),
-          );
-        }
-        children.add(glyph(fx.color, fx.opacity, 0));
-      }
-    }
-    final Widget stack = SizedBox.square(
-      dimension: canvas,
-      child: Stack(children: children),
-    );
-    final tint = folder.tint;
-    final ramp = dyn is FolderSymbol
-        ? (isDark ? dyn.darkTint : dyn.lightTint)
-        : null;
-    if (tint == null || ramp == null) return stack;
-    return ColorFiltered(
-      colorFilter: ColorFilter.matrix(ramp.matrix(tint)),
-      child: stack,
     );
   }
 
