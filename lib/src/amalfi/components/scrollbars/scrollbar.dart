@@ -12,8 +12,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../../system_look.dart';
 import '../../tokens.g.dart';
 import 'scrollbar_track.dart';
 
@@ -28,7 +30,7 @@ class AmalfiScrollbar extends StatefulWidget {
     super.key,
     required this.child,
     this.axis = Axis.vertical,
-    this.style = AmalfiScrollbarStyle.overlay,
+    this.style,
     this.notificationDepth = 0,
     this.padding = EdgeInsets.zero,
     this.statesController,
@@ -37,7 +39,10 @@ class AmalfiScrollbar extends StatefulWidget {
 
   final Widget child;
   final Axis axis;
-  final AmalfiScrollbarStyle style;
+
+  /// Null: the system look's (Appearance › show scroll bars: always is the legacy bar, the
+  /// others the overlay one).
+  final AmalfiScrollbarStyle? style;
   final int notificationDepth;
   final EdgeInsets padding;
 
@@ -79,10 +84,39 @@ class _AmalfiScrollbarState extends State<AmalfiScrollbar>
   double? _dragFrom;
   double _dragPixels = 0;
 
-  bool get _overlay => widget.style == AmalfiScrollbarStyle.overlay;
+  AmalfiScrollbarStyle _style = AmalfiScrollbarStyle.overlay;
+  SystemScrollClick _click = SystemScrollClick.page;
 
-  void _repaint() {
-    if (mounted) setState(() {});
+  bool get _overlay => _style == AmalfiScrollbarStyle.overlay;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final look = SystemLookScope.of(context);
+    _click = look.scrollClick;
+    _style =
+        widget.style ??
+        (look.scrollBars == SystemScrollBars.always
+            ? AmalfiScrollbarStyle.legacy
+            : AmalfiScrollbarStyle.overlay);
+  }
+
+  void _repaint() => _update(() {});
+
+  /// setState that is safe during layout: a scroll view that changes its extents tells its
+  /// bar while it lays out (it may start a ballistic scroll), and the bar rebuilds right after
+  /// the frame instead.
+  void _update(VoidCallback change) {
+    if (!mounted) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      change();
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      setState(change);
+    }
   }
 
   @override
@@ -157,14 +191,14 @@ class _AmalfiScrollbarState extends State<AmalfiScrollbar>
       if (n.depth == widget.notificationDepth &&
           n.metrics.axis == widget.axis) {
         _position = Scrollable.maybeOf(n.context)?.position ?? _position;
-        setState(() => _metrics = n.metrics);
+        _update(() => _metrics = n.metrics);
       }
     } else if (n is ScrollNotification) {
       if (n.depth == widget.notificationDepth &&
           n.metrics.axis == widget.axis) {
         _position =
             Scrollable.maybeOf(n.context ?? context)?.position ?? _position;
-        setState(() => _metrics = n.metrics);
+        _update(() => _metrics = n.metrics);
         if (n is ScrollUpdateNotification || n is ScrollStartNotification) {
           _show();
         } else if (n is ScrollEndNotification) {
@@ -214,12 +248,18 @@ class _AmalfiScrollbarState extends State<AmalfiScrollbar>
       _dragPixels = position.pixels;
       _set(WidgetState.dragged, true);
     } else {
-      // Page toward the click.
+      // Page toward the click, or (Appearance › click in the scroll bar) jump to the spot: the
+      // thumb centres on the click.
+      final room = length - extent;
+      final spot = room <= 0
+          ? position.pixels
+          : position.minScrollExtent +
+                ((at - extent / 2) / room).clamp(0.0, 1.0) *
+                    (position.maxScrollExtent - position.minScrollExtent);
       final page = position.viewportDimension * (at < offset ? -1 : 1);
-      final target = (position.pixels + page).clamp(
-        position.minScrollExtent,
-        position.maxScrollExtent,
-      );
+      final target =
+          (_click == SystemScrollClick.spot ? spot : position.pixels + page)
+              .clamp(position.minScrollExtent, position.maxScrollExtent);
       unawaited(
         position.animateTo(
           target,
@@ -254,7 +294,7 @@ class _AmalfiScrollbarState extends State<AmalfiScrollbar>
   @override
   Widget build(BuildContext context) {
     final vertical = widget.axis == Axis.vertical;
-    final thickness = AmalfiScrollbarMetrics.thicknessOf(widget.style);
+    final thickness = AmalfiScrollbarMetrics.thicknessOf(_style);
     final rtl = Directionality.maybeOf(context) == TextDirection.rtl;
     final padding = vertical
         ? EdgeInsets.only(
@@ -279,7 +319,7 @@ class _AmalfiScrollbarState extends State<AmalfiScrollbar>
               (!_overlay || (!_fits && (_shown.value > 0 || _held)));
           final face = AmalfiScrollbarTrack(
             axis: widget.axis,
-            style: widget.style,
+            style: _style,
             expansion: AmalfiFades.quick.curve.transform(_expanded.value),
             hovered: _current.contains(WidgetState.hovered),
             dragging: _current.contains(WidgetState.dragged),

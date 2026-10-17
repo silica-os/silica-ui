@@ -13,6 +13,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../silica_ui.dart' show uiFontFamily, uiText;
+import '../appearance.dart' show SilicaAppearance;
+import '../system_look.dart';
 import 'file_icons.dart';
 import '../thumbnails.dart';
 import 'silica_icons.dart';
@@ -388,6 +390,33 @@ class SilicaIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Without a style of its own the icon follows the system's (Appearance › icon style).
+    if (appearance == null && dark == null) {
+      final system = SystemLookScope.maybeOf(context);
+      if (system != null && system.iconStyle != SystemIconStyle.standard) {
+        final night = SilicaAppearance.isDark(context);
+        return SilicaIcon(
+          source,
+          side: side,
+          appearance: switch (system.iconStyle) {
+            SystemIconStyle.standard => IconAppearance.light,
+            SystemIconStyle.dark => IconAppearance.dark,
+            SystemIconStyle.clear => IconAppearance.clear,
+            SystemIconStyle.tinted =>
+              night ? IconAppearance.tintedDark : IconAppearance.tinted,
+          },
+          // The Tinted styles take the accent (the blue the PNGs carry for multicolour).
+          tint: system.iconStyle == SystemIconStyle.tinted
+              ? tint ??
+                    SystemLook.amalfiColor(system.accent, dark: false) ??
+                    defaultIconTint
+              : tint,
+          badges: badges,
+          env: env,
+          besideApps: besideApps,
+        );
+      }
+    }
     final look = resolvedAppearance;
     final isDark = look.isDark;
     final canvas = canvasExtent;

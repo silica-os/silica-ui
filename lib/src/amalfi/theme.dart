@@ -3,6 +3,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../appearance.dart' show SilicaAppearance;
+import '../system_look.dart';
 import 'token_types.dart';
 import 'tokens.g.dart';
 
@@ -10,13 +11,20 @@ import 'tokens.g.dart';
 /// palette of one app.
 @immutable
 class AmalfiThemeData {
-  const AmalfiThemeData({required this.brightness, this.app});
+  const AmalfiThemeData({
+    required this.brightness,
+    this.app,
+    this.accent,
+    this.highlight,
+  });
 
   /// The light appearance, with the palette of [app] if given.
-  const AmalfiThemeData.light({this.app}) : brightness = Brightness.light;
+  const AmalfiThemeData.light({this.app, this.accent, this.highlight})
+    : brightness = Brightness.light;
 
   /// The dark appearance, with the palette of [app] if given.
-  const AmalfiThemeData.dark({this.app}) : brightness = Brightness.dark;
+  const AmalfiThemeData.dark({this.app, this.accent, this.highlight})
+    : brightness = Brightness.dark;
 
   /// The appearance.
   final Brightness brightness;
@@ -24,11 +32,35 @@ class AmalfiThemeData {
   /// The app whose palette [appColors] gives (`Mail`, `Mission Control`); null: none.
   final String? app;
 
+  /// The accent chosen in the system settings, in place of `Accent/Amalfi`; null: the token's.
+  final Color? accent;
+
+  /// The text highlight colour chosen in the system settings; null: the accent's soft tone.
+  final Color? highlight;
+
   /// Whether this is the dark appearance.
   bool get isDark => brightness == Brightness.dark;
 
-  /// The colours of [brightness].
-  AmalfiColors get colors => AmalfiColors.of(brightness);
+  /// The colours of [brightness], with [accent] in place of `Accent/Amalfi` when set (its
+  /// pressed tone is 20 % darker, its soft tone a translucent wash of it).
+  AmalfiColors get colors {
+    final base = AmalfiColors.of(brightness);
+    final accent = this.accent;
+    if (accent == null) return base;
+    return base.withAccent(
+      accent,
+      Color.lerp(accent, const Color(0xFF000000), 0.2)!,
+      accent.withAlpha(isDark ? 0x38 : 0x24),
+    );
+  }
+
+  /// The background of selected text: the highlight colour, otherwise the accent's soft tone.
+  Color get selectionColor {
+    final highlight = this.highlight;
+    return highlight == null
+        ? colors.accentAmalfiSoft
+        : highlight.withAlpha(isDark ? 0x66 : 0x55);
+  }
 
   /// The drop shadows of [brightness].
   AmalfiShadows get shadows => AmalfiShadows.of(brightness);
@@ -43,20 +75,28 @@ class AmalfiThemeData {
   Color? appColor(String token) => appColors?[token];
 
   /// A copy with the given fields replaced.
-  AmalfiThemeData copyWith({Brightness? brightness, String? app}) =>
-      AmalfiThemeData(
-        brightness: brightness ?? this.brightness,
-        app: app ?? this.app,
-      );
+  AmalfiThemeData copyWith({
+    Brightness? brightness,
+    String? app,
+    Color? accent,
+    Color? highlight,
+  }) => AmalfiThemeData(
+    brightness: brightness ?? this.brightness,
+    app: app ?? this.app,
+    accent: accent ?? this.accent,
+    highlight: highlight ?? this.highlight,
+  );
 
   @override
   bool operator ==(Object other) =>
       other is AmalfiThemeData &&
       other.brightness == brightness &&
-      other.app == app;
+      other.app == app &&
+      other.accent == accent &&
+      other.highlight == highlight;
 
   @override
-  int get hashCode => Object.hash(brightness, app);
+  int get hashCode => Object.hash(brightness, app, accent, highlight);
 
   @override
   String toString() => 'AmalfiThemeData($brightness, app: $app)';
@@ -89,21 +129,38 @@ class AmalfiTheme extends StatelessWidget {
 
   /// The theme in effect under [context].
   static AmalfiThemeData of(BuildContext context) =>
-      maybeOf(context) ??
-      AmalfiThemeData(brightness: SilicaAppearance.brightnessOf(context));
+      maybeOf(context) ?? _withLook(context, null, null);
 
   /// The theme of the closest [AmalfiTheme] above [context]; null when there is none.
   static AmalfiThemeData? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_AmalfiScope>()?.data;
 
-  @override
-  Widget build(BuildContext context) {
-    final data = AmalfiThemeData(
-      brightness: brightness ?? SilicaAppearance.brightnessOf(context),
-      app: app ?? maybeOf(context)?.app,
+  /// The theme of the appearance in effect with the system look (accent, highlight) under
+  /// [context]; [brightness] and [app] override the appearance and the palette.
+  static AmalfiThemeData _withLook(
+    BuildContext context,
+    Brightness? brightness,
+    String? app,
+  ) {
+    final dark =
+        (brightness ?? SilicaAppearance.brightnessOf(context)) ==
+        Brightness.dark;
+    final look = SystemLookScope.of(context);
+    return AmalfiThemeData(
+      brightness: dark ? Brightness.dark : Brightness.light,
+      app: app,
+      accent: SystemLook.amalfiColor(look.accent, dark: dark),
+      highlight: look.highlight == null
+          ? null
+          : SystemLook.amalfiColor(look.highlight!, dark: dark),
     );
-    return _AmalfiScope(data: data, child: child);
   }
+
+  @override
+  Widget build(BuildContext context) => _AmalfiScope(
+    data: _withLook(context, brightness, app ?? maybeOf(context)?.app),
+    child: child,
+  );
 }
 
 class _AmalfiScope extends InheritedWidget {

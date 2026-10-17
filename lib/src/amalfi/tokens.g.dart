@@ -883,6 +883,58 @@ final class AmalfiColors {
     Brightness.dark => dark,
   };
 
+  /// These colours with the accent replaced: [accent] for `Accent/Amalfi`,
+  /// [pressed] for
+  /// `Accent/Amalfi Pressed` and [soft] for `Accent/Amalfi Soft` (the accent
+  /// chosen in the
+  /// system settings).
+  AmalfiColors withAccent(Color accent, Color pressed, Color soft) =>
+      AmalfiColors._(
+        brightness: brightness,
+        accentAmalfi: accent,
+        accentAmalfiPressed: pressed,
+        accentAmalfiSoft: soft,
+        paletteLimone: paletteLimone,
+        paletteLimoneScuro: paletteLimoneScuro,
+        paletteArancia: paletteArancia,
+        paletteTerracotta: paletteTerracotta,
+        paletteBouganville: paletteBouganville,
+        paletteUlivo: paletteUlivo,
+        paletteMare: paletteMare,
+        paletteLavanda: paletteLavanda,
+        surfaceWindow: surfaceWindow,
+        surfaceSidebar: surfaceSidebar,
+        surfaceRaised: surfaceRaised,
+        surfaceSunken: surfaceSunken,
+        surfaceControl: surfaceControl,
+        surfaceControlPressed: surfaceControlPressed,
+        textPrimary: textPrimary,
+        textSecondary: textSecondary,
+        textTertiary: textTertiary,
+        textOnAccent: textOnAccent,
+        lineSeparator: lineSeparator,
+        lineBorder: lineBorder,
+        lineFocus: lineFocus,
+        glassTint: glassTint,
+        glassTintThick: glassTintThick,
+        glassRimLight: glassRimLight,
+        glassRimDark: glassRimDark,
+        shadowSoft: shadowSoft,
+        stateHoverOverlay: stateHoverOverlay,
+        statePressOverlay: statePressOverlay,
+        shadow1: shadow1,
+        shadow2: shadow2,
+        shadow3: shadow3,
+        menuBarSelection: menuBarSelection,
+        terminal: terminal,
+        mail: mail,
+        faro: faro,
+        missionControl: missionControl,
+        preview: preview,
+        calculator: calculator,
+        clock: clock,
+      );
+
   /// Every colour token name, apps included, in the order of `tokens.json`.
   static const List<String> tokenNames = [
     'Accent/Amalfi',

@@ -12,6 +12,7 @@ import '../../../controls/control_base.dart' show WindowActiveScope;
 import '../../foundation/foundation.dart';
 import '../../smooth_border.dart';
 import '../../theme.dart';
+import '../../../system_look.dart';
 import '../../tokens.g.dart';
 import '../titlebars/text_box.dart';
 
@@ -193,11 +194,13 @@ class _AmalfiSidebarRowState extends State<AmalfiSidebarRow> {
               AmalfiSidebarGlyphColor.maybeOf(context) ??
               colors.accentAmalfi;
     final labelColor = active ? colors.textPrimary : colors.textSecondary;
+    // Appearance › sidebar icon size.
+    final size = SystemLookScope.of(context).sidebarIconSize.metrics;
     final labelStyle = selected
         ? AmalfiType.sidebar(
             color: labelColor,
-          ).copyWith(fontWeight: FontWeight.w600)
-        : AmalfiType.sidebar(color: labelColor);
+          ).copyWith(fontWeight: FontWeight.w600, fontSize: size.text)
+        : AmalfiType.sidebar(color: labelColor).copyWith(fontSize: size.text);
     final icon = widget.icon;
     final badge = widget.badge;
     Widget row = Padding(
@@ -207,14 +210,10 @@ class _AmalfiSidebarRowState extends State<AmalfiSidebarRow> {
       child: Row(
         children: [
           SizedBox.square(
-            dimension: AmalfiSidebarMetrics.icon,
+            dimension: size.icon,
             child: icon == null
                 ? null
-                : AmalfiGlyph(
-                    icon,
-                    size: AmalfiSidebarMetrics.icon,
-                    color: iconColor,
-                  ),
+                : AmalfiGlyph(icon, size: size.icon, color: iconColor),
           ),
           const SizedBox(width: AmalfiSidebarMetrics.iconGap),
           Expanded(
@@ -265,7 +264,7 @@ class _AmalfiSidebarRowState extends State<AmalfiSidebarRow> {
           _focused = state.focused && widget.onTap != null;
         }),
         builder: (context, _) => SizedBox(
-          height: AmalfiSidebarMetrics.rowHeight,
+          height: size.row,
           child: !enabled
               ? Opacity(opacity: AmalfiStates.disabledOpacity, child: row)
               : _focused
