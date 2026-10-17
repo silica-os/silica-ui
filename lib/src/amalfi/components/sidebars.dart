@@ -5,3 +5,4 @@
 
 export 'sidebars/sidebar.dart';
 export 'sidebars/sidebar_reveal.dart';
+export 'sidebars/toolbar_follow.dart';
