@@ -226,13 +226,14 @@ OverlayState? rootOverlayOf(BuildContext context) =>
 
 /// Measures what [builder] builds when it can take all the room it wants (at most
 /// [maxSize]), without showing it: in an overlay entry that is laid out and never drawn.
-/// Null when there is no overlay above [context].
+/// Null when there is no overlay above [context] (or no [overlay] given).
 Future<Size?> measureInOverlay(
   BuildContext context,
   Widget Function(BuildContext context) builder, {
   Size maxSize = const Size(double.infinity, double.infinity),
+  OverlayState? overlay,
 }) {
-  final overlay = rootOverlayOf(context);
+  overlay ??= rootOverlayOf(context);
   if (overlay == null) return Future.value();
   final done = Completer<Size?>();
   final key = GlobalKey();

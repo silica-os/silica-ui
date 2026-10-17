@@ -34,6 +34,8 @@ Size _roomOf(FlutterView view) {
 /// size from its first frame; [builder] is called with a null `placement` then, and with where
 /// Ossido put the popup (relative to the window, after flipping and sliding it onto the
 /// output) when it is shown. Its glass comes from the compositor. `dismiss` closes the popup.
+/// [overlay] is where the content is measured and the popup put when the widgets around
+/// [context] have no root overlay (a shell layer, silica-desktop#222).
 /// The popup goes away with a press outside it, and its controller's `closed` tells.
 Future<SilicaPopupController?> showAmalfiAsPopup({
   required BuildContext context,
@@ -50,14 +52,15 @@ Future<SilicaPopupController?> showAmalfiAsPopup({
     SilicaPopupAdjust.slideX,
     SilicaPopupAdjust.slideY,
   },
+  OverlayState? overlay,
 }) async {
   if (SilicaPopups.available != true) {
     if (SilicaPopups.available == null) unawaited(SilicaPopups.probe());
     return null;
   }
   final view = View.maybeOf(context);
-  final overlay = rootOverlayOf(context);
-  if (view == null || overlay == null) return null;
+  final host = overlay ?? rootOverlayOf(context);
+  if (view == null || host == null) return null;
   final brightness = AmalfiTheme.of(context).brightness;
   final direction = Directionality.maybeOf(context) ?? TextDirection.ltr;
   Widget themed(Widget child) => Directionality(
@@ -69,8 +72,9 @@ Future<SilicaPopupController?> showAmalfiAsPopup({
     context,
     (c) => themed(builder(c, () {}, null)),
     maxSize: _roomOf(view),
+    overlay: host,
   );
-  if (measured == null || !overlay.mounted) return null;
+  if (measured == null || !host.mounted) return null;
   final size = Size(
     measured.width.ceilToDouble(),
     measured.height.ceilToDouble(),
@@ -86,7 +90,7 @@ Future<SilicaPopupController?> showAmalfiAsPopup({
     adjust: adjust,
   );
   if (popup == null) return null;
-  if (!overlay.mounted) {
+  if (!host.mounted) {
     unawaited(popup.close());
     return null;
   }
@@ -97,7 +101,7 @@ Future<SilicaPopupController?> showAmalfiAsPopup({
         view: popup.view,
         child: SilicaPopupScope(
           viewId: popup.viewId,
-          overlay: overlay,
+          overlay: host,
           child: AmalfiGlassBackendScope(
             backend: AmalfiGlassBackend.compositor,
             child: themed(
@@ -114,7 +118,7 @@ Future<SilicaPopupController?> showAmalfiAsPopup({
       child: const SizedBox.shrink(),
     ),
   );
-  overlay.insert(entry);
+  host.insert(entry);
   unawaited(
     popup.closed.whenComplete(() {
       entry.remove();

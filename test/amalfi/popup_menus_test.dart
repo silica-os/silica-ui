@@ -103,6 +103,50 @@ void main() {
   List<MethodCall> opened() =>
       calls.where((call) => call.method == 'openPopup').toList();
 
+  testWidgets(
+    'a popup goes into the overlay it is given, anchored by its edges',
+    (tester) async {
+      // A shell layer has no root overlay of its own (silica-desktop#222): the caller gives one.
+      final overlayKey = GlobalKey<OverlayState>();
+      late BuildContext context;
+      await pumpKitScene(
+        tester,
+        Stack(
+          children: [
+            Builder(
+              builder: (c) {
+                context = c;
+                return const SizedBox(width: 400, height: 300);
+              },
+            ),
+            IgnorePointer(child: Overlay(key: overlayKey)),
+          ],
+        ),
+      );
+      await offerPopups(tester);
+      showAmalfiAsPopup(
+        context: context,
+        anchor: const Offset(380, 44) & const Size(1, 1),
+        anchorEdge: SilicaPopupEdge.topRight,
+        gravity: SilicaPopupEdge.bottomLeft,
+        overlay: overlayKey.currentState,
+        builder: (context, dismiss, placement) =>
+            AmalfiMenu(entries: simpleEntries, onDismiss: dismiss),
+      );
+      await settle(tester);
+      final args = opened().single.arguments as Map;
+      expect(args['anchor'], 'top-right');
+      expect(args['gravity'], 'bottom-left');
+      expect(
+        find.descendant(
+          of: find.byWidget(overlayKey.currentWidget!),
+          matching: find.byType(ViewAnchor),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('a menu opens as a popup hanging from its position', (
     tester,
   ) async {

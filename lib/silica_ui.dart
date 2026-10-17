@@ -33,6 +33,7 @@ export 'src/menu.dart';
 export 'src/menu_bar.dart';
 export 'src/tip_outline.dart';
 export 'src/toolbar.dart';
+export 'src/amalfi/components/popup_presenter.dart' show showAmalfiAsPopup;
 export 'src/popups.dart'
     show
         SilicaPopupAdjust,
