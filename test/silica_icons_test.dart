@@ -214,8 +214,11 @@ void main() {
     expect(path.getBounds().right, closeTo(100, 0.01));
     expect(path.contains(const Offset(50, 0.5)), isTrue);
     expect(path.contains(const Offset(1, 1)), isFalse);
-    // Superellipse n 2.6, r 32: on the diagonal the corner is fuller than a circle of r 32.
+    // Radius 214 on 824 (26 %), smoothing 0.6: the diagonal point (10, 10) is inside.
     expect(path.contains(const Offset(10, 10)), isTrue);
+    // The Sketch outline: the straight edge ends at 41.55 % of the side, the corner curve at 14.2 %.
+    expect(path.contains(const Offset(41.6, 0.5)), isTrue);
+    expect(path.contains(const Offset(3, 3)), isFalse);
   });
 
   testWidgets('a layered icon composes without errors, even with the clock', (

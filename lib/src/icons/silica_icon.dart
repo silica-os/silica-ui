@@ -23,11 +23,6 @@ const double bodyInset = 100;
 const double bodySide = 824;
 const double keylineSide = 600;
 
-/// Body mask: a superellipse per corner with n ≈ 2.6 and radius ≈ 0.32 × side
-/// (plan/reference/icons.md, measured on the app switcher).
-const double maskExponent = 2.6;
-const double maskRadiusRatio = 0.32;
-
 /// Shadow of the icon on the background: ~3 % of the side below, blurred as much (dock.md).
 const double dropOffsetRatio = 0.03;
 const Color dropColor = Color(0x55000000);
@@ -91,7 +86,7 @@ const List<Color> neutralDark = [Color(0xFF3A3A3C), Color(0xFF161618)];
 const double clearBlurRatio = 0.08;
 
 /// The background the shell generates for an app in Clear and Tinted (icon-format.md, "Themes"),
-/// top to bottom: light glass white 50 % → 25 %, dark glass graphite 50 % → black 55 %; the tint
+/// top to bottom: light glass white 50 % → 25 % (Clear exists only in light); the tint
 /// lightened towards white by 90 % → 76 %, or darkened by 62 % → 84 %. Default and Dark have
 /// their own background layer; for them the neutral one is returned.
 List<Color> themeBackground(IconAppearance look, Color tint) {
@@ -105,7 +100,6 @@ List<Color> themeBackground(IconAppearance look, Color tint) {
   const white = Color(0xFFFFFFFF);
   return switch (look) {
     IconAppearance.clear => const [Color(0x80FFFFFF), Color(0x40FFFFFF)],
-    IconAppearance.clearDark => const [Color(0x803A3A3C), Color(0x8C000000)],
     IconAppearance.tinted => [mix(tint, white, 0.90), mix(tint, white, 0.76)],
     IconAppearance.tintedDark => [darken(0.62), darken(0.84)],
     IconAppearance.light => neutralLight,
@@ -126,7 +120,6 @@ ColorFilter? foregroundFilter(IconAppearance look, Color tint) {
   );
   final (Color, Color)? ramp = switch (look) {
     IconAppearance.clear => (const Color(0xFF696969), white),
-    IconAppearance.clearDark => (const Color(0xFF969696), white),
     IconAppearance.tinted => (deep, white),
     IconAppearance.tintedDark => (deep, Color.lerp(tint, white, 0.8)!),
     IconAppearance.light || IconAppearance.dark => null,
@@ -227,29 +220,71 @@ String monthName(int month, String? language) {
   return names[(month - 1).clamp(0, 11)];
 }
 
+/// The outline of the body in the unit square: the Sketch `Icon / Background` Body path (smooth
+/// corners, radius 214 on 824, smoothing 0.6; `tools/body.svg` of silica-icons) as a move, lines
+/// (two numbers) and cubics (six numbers).
+const List<List<double>> _bodyOutline = [
+  [0.415533981, 0],
+  [0.584466019, 0],
+  [0.729916549, 0, 0.802641813, 0, 0.858196562, 0.028306558],
+  [
+    0.907063902,
+    0.053205711,
+    0.946794289,
+    0.092936098,
+    0.971693442,
+    0.141803438,
+  ],
+  [1, 0.197358187, 1, 0.270083451, 1, 0.415533981],
+  [1, 0.584466019],
+  [1, 0.729916549, 1, 0.802641813, 0.971693442, 0.858196562],
+  [
+    0.946794289,
+    0.907063902,
+    0.907063902,
+    0.946794289,
+    0.858196562,
+    0.971693442,
+  ],
+  [0.802641813, 1, 0.729916549, 1, 0.584466019, 1],
+  [0.415533981, 1],
+  [0.270083451, 1, 0.197358187, 1, 0.141803438, 0.971693442],
+  [
+    0.092936098,
+    0.946794289,
+    0.053205711,
+    0.907063902,
+    0.028306558,
+    0.858196562,
+  ],
+  [0, 0.802641813, 0, 0.729916549, 0, 0.584466019],
+  [0, 0.415533981],
+  [0, 0.270083451, 0, 0.197358187, 0.028306558, 0.141803438],
+  [
+    0.053205711,
+    0.092936098,
+    0.092936098,
+    0.053205711,
+    0.141803438,
+    0.028306558,
+  ],
+  [0.197358187, 0, 0.270083451, 0, 0.415533981, 0],
+];
+
 /// The outline of the body in the rectangle `r`.
 Path iconBodyPath(Rect r) {
-  final radius = math.min(r.width, r.height) * maskRadiusRatio;
-  const steps = 16;
   final path = Path();
-  // A corner: center (cx, cy), directions (sx, sy) outwards; from side to side.
-  void corner(double cx, double cy, double sx, double sy, bool first) {
-    for (var i = 0; i <= steps; i++) {
-      final t = (sx * sy > 0 ? i : steps - i) / steps * math.pi / 2;
-      final x = cx + sx * radius * math.pow(math.cos(t), 2 / maskExponent);
-      final y = cy + sy * radius * math.pow(math.sin(t), 2 / maskExponent);
-      if (first && i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
+  double x(double u) => r.left + u * r.width;
+  double y(double v) => r.top + v * r.height;
+  for (final (i, s) in _bodyOutline.indexed) {
+    if (i == 0) {
+      path.moveTo(x(s[0]), y(s[1]));
+    } else if (s.length == 2) {
+      path.lineTo(x(s[0]), y(s[1]));
+    } else {
+      path.cubicTo(x(s[0]), y(s[1]), x(s[2]), y(s[3]), x(s[4]), y(s[5]));
     }
   }
-
-  corner(r.right - radius, r.bottom - radius, 1, 1, true);
-  corner(r.left + radius, r.bottom - radius, -1, 1, false);
-  corner(r.left + radius, r.top + radius, -1, -1, false);
-  corner(r.right - radius, r.top + radius, 1, -1, false);
   return path..close();
 }
 

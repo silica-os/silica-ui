@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Changed (silica-desktop#226):** clear (glass) exists only in light: `IconAppearance.clearDark` and the
+  `clear-dark` rendered key are gone (the service word 5 is not sent). The app icon body is the Sketch
+  outline of silica-icons (`tools/body.svg`: radius 214, smoothing 0.6) instead of a superellipse.
 - **Added (silica-desktop#224):** `SilicaThumbnails` (client of `dev.frascella.Silica.Thumbnails1`:
   `thumbnail(uri, sizePx)` returns the cached PNG path or null, `invalidate(uris)`) and the
   `SilicaThumbnail` widget: it asks for `size x devicePixelRatio`, shows `fallback` (the file-type
