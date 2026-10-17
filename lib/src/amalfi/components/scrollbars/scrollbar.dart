@@ -12,6 +12,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../system_look.dart';
@@ -100,8 +101,22 @@ class _AmalfiScrollbarState extends State<AmalfiScrollbar>
             : AmalfiScrollbarStyle.overlay);
   }
 
-  void _repaint() {
-    if (mounted) setState(() {});
+  void _repaint() => _update(() {});
+
+  /// setState that is safe during layout: a scroll view that changes its extents tells its
+  /// bar while it lays out (it may start a ballistic scroll), and the bar rebuilds right after
+  /// the frame instead.
+  void _update(VoidCallback change) {
+    if (!mounted) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      change();
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      setState(change);
+    }
   }
 
   @override
@@ -176,14 +191,14 @@ class _AmalfiScrollbarState extends State<AmalfiScrollbar>
       if (n.depth == widget.notificationDepth &&
           n.metrics.axis == widget.axis) {
         _position = Scrollable.maybeOf(n.context)?.position ?? _position;
-        setState(() => _metrics = n.metrics);
+        _update(() => _metrics = n.metrics);
       }
     } else if (n is ScrollNotification) {
       if (n.depth == widget.notificationDepth &&
           n.metrics.axis == widget.axis) {
         _position =
             Scrollable.maybeOf(n.context ?? context)?.position ?? _position;
-        setState(() => _metrics = n.metrics);
+        _update(() => _metrics = n.metrics);
         if (n is ScrollUpdateNotification || n is ScrollStartNotification) {
           _show();
         } else if (n is ScrollEndNotification) {
