@@ -15,13 +15,16 @@ void main() {
     messenger.setMockMethodCallHandler(SilicaShare.channel, (call) async {
       calls.add(call);
       return [
-        '[{"id":"copy","name":"Copy","icon":""},'
-            '{"id":"dev.frascella.Mail","name":"Mail","icon":"dev.frascella.Mail"},'
-            '{"name":"no id"}]',
+        [
+          ['copy', 'Copy', ''],
+          ['dev.frascella.Mail', 'Mail', 'dev.frascella.Mail'],
+          ['', 7],
+        ],
       ];
     });
     final targets = await SilicaShare.targets(files);
     expect(targets.map((t) => t.id), ['copy', 'dev.frascella.Mail']);
+    expect(targets[1].icon, 'dev.frascella.Mail');
     final args = calls.single.arguments as Map;
     expect(args['method'], 'Targets');
     expect(args['signature'], 'as');

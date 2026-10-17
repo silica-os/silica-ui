@@ -1,7 +1,6 @@
 // The Share menu: the system share service (silica-daemon, `dev.frascella.Silica.Share1`).
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -76,8 +75,7 @@ abstract final class SilicaShare {
       final reply = await _call('Targets', [
         [for (final f in files) f.toString()],
       ]);
-      final json = reply.isEmpty ? null : reply.first;
-      return json is String ? parseTargets(json) : const [];
+      return reply.isEmpty ? const [] : parseTargets(reply.first);
     } on PlatformException {
       return const [];
     } on MissingPluginException {
@@ -101,22 +99,20 @@ abstract final class SilicaShare {
     }
   }
 
-  /// The targets in the service's JSON reply; malformed entries are skipped.
-  static List<SilicaShareTarget> parseTargets(String json) {
-    final Object? decoded;
-    try {
-      decoded = jsonDecode(json);
-    } on FormatException {
-      return const [];
-    }
-    if (decoded is! List) return const [];
+  /// The targets in the service's typed reply, `a(sss)` (id, name, icon), which the channel
+  /// delivers as a list of lists; malformed entries are skipped.
+  static List<SilicaShareTarget> parseTargets(Object? reply) {
+    if (reply is! List) return const [];
     return [
-      for (final item in decoded)
-        if (item is Map && item['id'] is String && item['name'] is String)
+      for (final item in reply)
+        if (item is List &&
+            item.length >= 2 &&
+            item[0] is String &&
+            item[1] is String)
           SilicaShareTarget(
-            id: item['id'] as String,
-            name: item['name'] as String,
-            icon: item['icon'] is String ? item['icon'] as String : '',
+            id: item[0] as String,
+            name: item[1] as String,
+            icon: item.length > 2 && item[2] is String ? item[2] as String : '',
           ),
     ];
   }
