@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -281,6 +282,49 @@ void main() {
     );
     expect(image.width, 48);
   });
+
+  testWidgets(
+    'SilicaFileIcon.onComposed fires once the PNG is decoded, not before',
+    (tester) async {
+      final root = Directory.systemTemp.createTempSync('composed-');
+      addTearDown(() => root.deleteSync(recursive: true));
+      final png = File('${root.path}/a.png')
+        ..writeAsBytesSync(
+          base64Decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==',
+          ),
+        );
+      final gate = Completer<List<Object?>>();
+      messenger.setMockMethodCallHandler(
+        SilicaThumbnails.channel,
+        (call) => gate.future,
+      );
+      var composed = 0;
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: SilicaFileIcon(
+            file: file,
+            size: 48,
+            onComposed: () => composed++,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      expect(composed, 0);
+      gate.complete([png.path, false]);
+      await tester.runAsync(() async {
+        for (var i = 0; i < 100 && composed == 0; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+        }
+      });
+      await tester.pump();
+      expect(composed, 1);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(composed, 1);
+    },
+  );
 
   testWidgets(
     'SilicaFileIcon without the pack or the service is an empty box',

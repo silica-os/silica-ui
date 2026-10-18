@@ -393,7 +393,13 @@ class SilicaIcon extends StatelessWidget {
     this.badges = const {},
     this.env,
     this.besideApps = false,
+    this.onComposed,
   });
+
+  /// Called once the system-composed image of a [ServiceSource] has been delivered and its
+  /// first frame decoded, so a placeholder can hand over to it with no blank frame. Not
+  /// called while the plain fallback shows, nor for other sources.
+  final VoidCallback? onComposed;
 
   /// A place (folder, Trash) next to the apps, as in the Dock: it too has `side` as its
   /// body and the app canvas around it.
@@ -455,6 +461,7 @@ class SilicaIcon extends StatelessWidget {
           badges: badges,
           env: env,
           besideApps: besideApps,
+          onComposed: onComposed,
         );
       }
     }
@@ -495,6 +502,7 @@ class SilicaIcon extends StatelessWidget {
           // Folders follow the icon style: an explicit one, else the system's.
           look: appearance ?? (dark == null ? null : resolvedAppearance),
           tint: tint,
+          onComposed: onComposed,
         ),
       FlatSource(:final path) => _flat(path, canvas, body, isDark),
     };

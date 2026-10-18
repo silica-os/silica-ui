@@ -318,7 +318,12 @@ class SilicaFileIcon extends StatefulWidget {
     this.env,
     this.look,
     this.tint,
+    this.onComposed,
   });
+
+  /// Called once, per delivered image, when the composed icon's first frame is decoded and
+  /// drawn in place of the fallback.
+  final VoidCallback? onComposed;
 
   /// The icon style folders are drawn in (Default, Dark, Clear, Tinted). Null: the system's
   /// (Settings > Appearance > icon style), which is what the file manager and the shell want.
@@ -358,6 +363,7 @@ class SilicaFileIcon extends StatefulWidget {
 class _SilicaFileIconState extends State<SilicaFileIcon> {
   String? _path;
   int _generation = 0;
+  String? _reported;
 
   @override
   void didChangeDependencies() {
@@ -422,6 +428,15 @@ class _SilicaFileIconState extends State<SilicaFileIcon> {
       fit: widget.fit,
       filterQuality: FilterQuality.medium,
       gaplessPlayback: true,
+      frameBuilder: (context, child, frame, sync) {
+        if ((sync || frame != null) && _reported != path) {
+          _reported = path;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _reported == path) widget.onComposed?.call();
+          });
+        }
+        return child;
+      },
       errorBuilder: (_, _, _) => fallback,
     );
   }
