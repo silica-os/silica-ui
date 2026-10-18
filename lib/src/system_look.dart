@@ -18,6 +18,7 @@ import 'package:flutter/widgets.dart';
 
 import 'appearance.dart' show SilicaAppearance;
 import 'controls/control_base.dart';
+import 'dbus.dart';
 
 /// When scroll bars show (Appearance › show scroll bars).
 enum SystemScrollBars {
@@ -178,13 +179,12 @@ class SystemLook {
       '$scrollClick, $iconStyle)';
 }
 
-/// Reads the look from silica-daemon and tells whoever listens when it changes.
+/// Follows the look in silica-daemon and tells whoever listens when it changes.
+///
+/// The state is read once when the first [SystemLookScope] appears, then follows the daemon's
+/// `Changed` signal (the whole state, in every emission) and a daemon that appears later
+/// (`NameOwnerChanged`). The channel is [SilicaDBus]'s, shared with the app and the shell.
 abstract final class SilicaSystemLook {
-  static const MethodChannel channel = MethodChannel(
-    'silica/dbus',
-    JSONMethodCodec(),
-  );
-
   /// The look in effect.
   static final ValueNotifier<SystemLook> notifier = ValueNotifier(
     const SystemLook(),
@@ -192,30 +192,70 @@ abstract final class SilicaSystemLook {
 
   static SystemLook get current => notifier.value;
 
-  /// How often the daemon is asked.
-  static const Duration interval = Duration(seconds: 1);
+  static const String _name = 'dev.frascella.Silica';
+  static const String _path = '/dev/frascella/Silica/System1';
+  static const String _interface = 'dev.frascella.Silica.System1';
 
-  static Timer? _timer;
+  static StreamSubscription<SilicaDBusSignal>? _changed;
+  static StreamSubscription<SilicaDBusSignal>? _owner;
+  static SilicaDBus _bus = SilicaDBus.instance;
   static int _users = 0;
   static int _epoch = 0;
-  static bool _inFlight = false;
 
   /// Starts following the daemon (counted: every [SystemLookScope] asks, the last to leave
   /// stops it). The first read is immediate.
   static void acquire() {
     if (_users++ > 0) return;
     unawaited(refresh());
-    _timer = Timer.periodic(interval, (_) => unawaited(refresh()));
+    _changed = _bus
+        .signals(
+          sender: _name,
+          path: _path,
+          interface: _interface,
+          member: 'Changed',
+        )
+        .listen(
+          _onChanged,
+          onError: (Object _) {
+            // Outside Silica there are no signals: the default look stays.
+          },
+        );
+    _owner = _bus
+        .signals(
+          sender: 'org.freedesktop.DBus',
+          interface: 'org.freedesktop.DBus',
+          member: 'NameOwnerChanged',
+        )
+        .listen((signal) {
+          // The daemon (re)started: read its state.
+          if (signal.args.isNotEmpty && signal.args.first == _name) {
+            unawaited(refresh());
+          }
+        }, onError: (Object _) {});
   }
 
   static void release() {
     if (_users == 0 || --_users > 0) return;
-    _timer?.cancel();
-    _timer = null;
+    unawaited(_changed?.cancel());
+    unawaited(_owner?.cancel());
+    _changed = null;
+    _owner = null;
   }
 
-  /// Sets the look now (Settings, as soon as a control is touched, before the daemon has it); a
-  /// read of the daemon already in flight is dropped.
+  static void _onChanged(SilicaDBusSignal signal) {
+    final first = signal.args.isEmpty ? null : signal.args.first;
+    if (first is Map) _take(first, _epoch);
+  }
+
+  // A daemon without the look (older) says nothing: the look stays. A read that started before
+  // the look was set here ([apply]) is dropped.
+  static void _take(Map<Object?, Object?> state, int epoch) {
+    if (state.containsKey('look.accent') && epoch == _epoch) {
+      notifier.value = SystemLook.fromState(state);
+    }
+  }
+
+  /// Sets the look now (Settings, as soon as a control is touched, before the daemon has it).
   static void apply(SystemLook look) {
     _epoch++;
     notifier.value = look;
@@ -223,43 +263,33 @@ abstract final class SilicaSystemLook {
 
   /// Reads the daemon's state once.
   static Future<void> refresh() async {
-    if (_inFlight) return;
-    _inFlight = true;
     final epoch = _epoch;
     try {
-      final reply = await channel.invokeMethod<List<Object?>>('call', {
-        'bus': 'session',
-        'destination': 'dev.frascella.Silica',
-        'path': '/dev/frascella/Silica/System1',
-        'interface': 'dev.frascella.Silica.System1',
-        'method': 'State',
-        'signature': '',
-        'args': const <Object?>[],
-      });
-      final first = reply == null || reply.isEmpty ? null : reply.first;
-      // A daemon without the look (older) says nothing: the look stays.
-      if (first is Map && first.containsKey('look.accent') && epoch == _epoch) {
-        notifier.value = SystemLook.fromState(first);
-      }
+      final reply = await _bus.call(
+        destination: _name,
+        path: _path,
+        interface: _interface,
+        method: 'State',
+      );
+      final first = reply.isEmpty ? null : reply.first;
+      if (first is Map) _take(first, epoch);
     } on MissingPluginException {
-      // Outside Silica: the default look; no need to ask again.
-      _timer?.cancel();
-      _timer = null;
+      // Outside Silica: the default look.
     } on PlatformException {
-      // No daemon (yet): the look stays.
-    } finally {
-      _inFlight = false;
+      // No daemon (yet): NameOwnerChanged brings it.
     }
   }
 
-  /// Back to the initial state (tests).
+  /// Back to the initial state, with [bus] as the channel (tests).
   @visibleForTesting
-  static void reset() {
-    _timer?.cancel();
-    _timer = null;
+  static void reset({SilicaDBus? bus}) {
+    unawaited(_changed?.cancel());
+    unawaited(_owner?.cancel());
+    _changed = null;
+    _owner = null;
     _users = 0;
     _epoch = 0;
-    _inFlight = false;
+    _bus = bus ?? SilicaDBus.instance;
     notifier.value = const SystemLook();
   }
 }
