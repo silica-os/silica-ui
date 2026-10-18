@@ -37,9 +37,8 @@ Future<Finder> pumpKitScene(
       color: const Color(0xFF0E77E6),
       debugShowCheckedModeBanner: false,
       builder: (context, _) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(size: view, platformBrightness: appearance),
+        data: MediaQuery.of(context)
+            .copyWith(size: view, platformBrightness: appearance),
         child: Directionality(
           textDirection: TextDirection.ltr,
           child: AmalfiTheme(

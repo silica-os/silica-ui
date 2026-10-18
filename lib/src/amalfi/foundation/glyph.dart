@@ -398,11 +398,13 @@ abstract final class AmalfiGlyphs {
   ]);
 
   /// `chevron-up-down`.
-  static const AmalfiGlyphData chevronUpDown =
-      AmalfiGlyphData('chevron-up-down', [
-        AmalfiGlyphPath('M8 9.5 L12 5.5 L16 9.5'),
-        AmalfiGlyphPath('M8 14.5 L12 18.5 L16 14.5'),
-      ]);
+  static const AmalfiGlyphData chevronUpDown = AmalfiGlyphData(
+    'chevron-up-down',
+    [
+      AmalfiGlyphPath('M8 9.5 L12 5.5 L16 9.5'),
+      AmalfiGlyphPath('M8 14.5 L12 18.5 L16 14.5'),
+    ],
+  );
 
   /// `xmark`.
   static const AmalfiGlyphData xmark = AmalfiGlyphData('xmark', [
@@ -567,21 +569,23 @@ abstract final class AmalfiGlyphs {
   ]);
 
   /// `square-grid-2x2`.
-  static const AmalfiGlyphData
-  squareGrid2x2 = AmalfiGlyphData('square-grid-2x2', [
-    AmalfiGlyphPath(
-      'M5.35 3.75H8.9A1.6 1.6 0 0 1 10.5 5.35V8.9A1.6 1.6 0 0 1 8.9 10.5H5.35A1.6 1.6 0 0 1 3.75 8.9V5.35A1.6 1.6 0 0 1 5.35 3.75Z',
-    ),
-    AmalfiGlyphPath(
-      'M5.35 13.5H8.9A1.6 1.6 0 0 1 10.5 15.1V18.65A1.6 1.6 0 0 1 8.9 20.25H5.35A1.6 1.6 0 0 1 3.75 18.65V15.1A1.6 1.6 0 0 1 5.35 13.5Z',
-    ),
-    AmalfiGlyphPath(
-      'M15.1 3.75H18.65A1.6 1.6 0 0 1 20.25 5.35V8.9A1.6 1.6 0 0 1 18.65 10.5H15.1A1.6 1.6 0 0 1 13.5 8.9V5.35A1.6 1.6 0 0 1 15.1 3.75Z',
-    ),
-    AmalfiGlyphPath(
-      'M15.1 13.5H18.65A1.6 1.6 0 0 1 20.25 15.1V18.65A1.6 1.6 0 0 1 18.65 20.25H15.1A1.6 1.6 0 0 1 13.5 18.65V15.1A1.6 1.6 0 0 1 15.1 13.5Z',
-    ),
-  ]);
+  static const AmalfiGlyphData squareGrid2x2 = AmalfiGlyphData(
+    'square-grid-2x2',
+    [
+      AmalfiGlyphPath(
+        'M5.35 3.75H8.9A1.6 1.6 0 0 1 10.5 5.35V8.9A1.6 1.6 0 0 1 8.9 10.5H5.35A1.6 1.6 0 0 1 3.75 8.9V5.35A1.6 1.6 0 0 1 5.35 3.75Z',
+      ),
+      AmalfiGlyphPath(
+        'M5.35 13.5H8.9A1.6 1.6 0 0 1 10.5 15.1V18.65A1.6 1.6 0 0 1 8.9 20.25H5.35A1.6 1.6 0 0 1 3.75 18.65V15.1A1.6 1.6 0 0 1 5.35 13.5Z',
+      ),
+      AmalfiGlyphPath(
+        'M15.1 3.75H18.65A1.6 1.6 0 0 1 20.25 5.35V8.9A1.6 1.6 0 0 1 18.65 10.5H15.1A1.6 1.6 0 0 1 13.5 8.9V5.35A1.6 1.6 0 0 1 15.1 3.75Z',
+      ),
+      AmalfiGlyphPath(
+        'M15.1 13.5H18.65A1.6 1.6 0 0 1 20.25 15.1V18.65A1.6 1.6 0 0 1 18.65 20.25H15.1A1.6 1.6 0 0 1 13.5 18.65V15.1A1.6 1.6 0 0 1 15.1 13.5Z',
+      ),
+    ],
+  );
 
   /// `share`.
   static const AmalfiGlyphData share = AmalfiGlyphData('share', [
@@ -593,24 +597,26 @@ abstract final class AmalfiGlyphs {
   ]);
 
   /// `ellipsis-circle`.
-  static const AmalfiGlyphData ellipsisCircle =
-      AmalfiGlyphData('ellipsis-circle', [
-        AmalfiGlyphPath(
-          'M2.75 12A9.25 9.25 0 1 0 21.25 12A9.25 9.25 0 1 0 2.75 12Z',
-        ),
-        AmalfiGlyphPath(
-          'M7.4 12A0.5 0.5 0 1 0 8.4 12A0.5 0.5 0 1 0 7.4 12Z',
-          fill: true,
-        ),
-        AmalfiGlyphPath(
-          'M11.5 12A0.5 0.5 0 1 0 12.5 12A0.5 0.5 0 1 0 11.5 12Z',
-          fill: true,
-        ),
-        AmalfiGlyphPath(
-          'M15.6 12A0.5 0.5 0 1 0 16.6 12A0.5 0.5 0 1 0 15.6 12Z',
-          fill: true,
-        ),
-      ]);
+  static const AmalfiGlyphData ellipsisCircle = AmalfiGlyphData(
+    'ellipsis-circle',
+    [
+      AmalfiGlyphPath(
+        'M2.75 12A9.25 9.25 0 1 0 21.25 12A9.25 9.25 0 1 0 2.75 12Z',
+      ),
+      AmalfiGlyphPath(
+        'M7.4 12A0.5 0.5 0 1 0 8.4 12A0.5 0.5 0 1 0 7.4 12Z',
+        fill: true,
+      ),
+      AmalfiGlyphPath(
+        'M11.5 12A0.5 0.5 0 1 0 12.5 12A0.5 0.5 0 1 0 11.5 12Z',
+        fill: true,
+      ),
+      AmalfiGlyphPath(
+        'M15.6 12A0.5 0.5 0 1 0 16.6 12A0.5 0.5 0 1 0 15.6 12Z',
+        fill: true,
+      ),
+    ],
+  );
 
   /// `compose`.
   static const AmalfiGlyphData compose = AmalfiGlyphData('compose', [

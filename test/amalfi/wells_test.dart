@@ -210,9 +210,7 @@ void main() {
               // The kit's Caption (11 pt) hint is the text's own width (61), centred on a
               // half point; ours is whole points (60).
               deviations: {
-                if (size != 'Small')
-                  'Hint':
-                      'kit text measure 61 (half-point frame), ours whole points',
+                if (size != 'Small') 'Hint': 'kit text measure 61 (half-point frame), ours whole points',
               },
             );
             await expectKitPixels(
@@ -264,10 +262,8 @@ void main() {
                   'Focus Halo': find.byType(AmalfiFocusHalo),
               },
               deviations: const {
-                'Sky#corners':
-                    'test picture: the well clips the sky, its own corners do not show',
-                'Sea#corners':
-                    'test picture: the well clips the sea, its own corners do not show',
+                'Sky#corners': 'test picture: the well clips the sky, its own corners do not show',
+                'Sea#corners': 'test picture: the well clips the sea, its own corners do not show',
               },
             );
             await expectKitPixels(
@@ -418,9 +414,8 @@ void main() {
             expect(swatches[i], override, reason: chips[i].name);
             expect(
               chips[i].isKitInstance &&
-                  KitMaster.nested(
-                    chips[i],
-                  ).name.contains(i == 0 && row == 1 ? 'Selected' : 'Rest'),
+                  KitMaster.nested(chips[i]).name
+                      .contains(i == 0 && row == 1 ? 'Selected' : 'Rest'),
               isTrue,
             );
           }

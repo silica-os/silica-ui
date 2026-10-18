@@ -9,13 +9,14 @@ import 'dart:ui' show Color, Offset, Rect;
 /// `app`: the shell clips the body and adds edge and shadow; `file`: free shape.
 enum IconKind { app, file }
 
-/// The five themes of an app icon (icon-format.md, "Themes"): Default (here `light`), Dark,
-/// Clear (light only: there is no dark glass), Tinted Light and Tinted Dark. [key] is the theme's key in the
+/// The six themes of an app icon (icon-format.md, "Themes"): Default (here `light`), Dark,
+/// Clear Light and Clear Dark, Tinted Light and Tinted Dark. [key] is the theme's key in the
 /// manifest's `rendered` map.
 enum IconAppearance {
   light('default'),
   dark('dark'),
   clear('clear'),
+  clearDark('clear-dark'),
   tinted('tinted'),
   tintedDark('tinted-dark');
 
@@ -23,22 +24,26 @@ enum IconAppearance {
 
   final String key;
 
-  /// Dark and Tinted Dark: they take the `-dark` layers.
+  /// Dark, Clear Dark and Tinted Dark: they take the `-dark` layers.
   bool get isDark =>
-      this == IconAppearance.dark || this == IconAppearance.tintedDark;
+      this == IconAppearance.dark ||
+      this == IconAppearance.clearDark ||
+      this == IconAppearance.tintedDark;
 
-  bool get isClear => this == IconAppearance.clear;
+  bool get isClear =>
+      this == IconAppearance.clear || this == IconAppearance.clearDark;
 
   bool get isTinted =>
       this == IconAppearance.tinted || this == IconAppearance.tintedDark;
 
   /// The `appearance` argument of `Thumbnails1.AppIcon`: 0 light, 1 clear, 2 tinted, plus 4 for
-  /// the dark forms (clear has none).
+  /// the dark forms.
   int get serviceWord => switch (this) {
     IconAppearance.light => 0,
     IconAppearance.clear => 1,
     IconAppearance.tinted => 2,
     IconAppearance.dark => 4,
+    IconAppearance.clearDark => 5,
     IconAppearance.tintedDark => 6,
   };
 }

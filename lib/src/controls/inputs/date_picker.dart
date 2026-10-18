@@ -513,9 +513,8 @@ class _SilicaCalendarState extends State<SilicaCalendar> {
           Expanded(
             child: Text(
               '$monthName ${_month.year}',
-              style: inputText(
-                colors.text,
-              ).copyWith(fontWeight: FontWeight.w600),
+              style: inputText(colors.text)
+                  .copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           arrow(

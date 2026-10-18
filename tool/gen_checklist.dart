@@ -148,9 +148,8 @@ void _run(List<String> args) {
     }
     rows.add((family, total, done));
   }
-  File(
-    '$checklistPath/README.md',
-  ).writeAsStringSync(_readme(rows, outOfScopeCounts));
+  File('$checklistPath/README.md')
+      .writeAsStringSync(_readme(rows, outOfScopeCounts));
   final total = rows.fold(0, (n, r) => n + r.$2);
   final done = rows.fold(0, (n, r) => n + r.$3);
   stdout.writeln('gen_checklist: $done of $total masters done');

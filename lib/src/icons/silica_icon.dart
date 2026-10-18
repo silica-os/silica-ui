@@ -88,7 +88,7 @@ const List<Color> neutralDark = [Color(0xFF3A3A3C), Color(0xFF161618)];
 const double clearBlurRatio = 0.08;
 
 /// The background the shell generates for an app in Clear and Tinted (icon-format.md, "Themes"),
-/// top to bottom: light glass white 50 % → 25 % (Clear exists only in light); the tint
+/// top to bottom: light glass white 50 % → 25 %, dark glass graphite 50 % → black 55 %; the tint
 /// lightened towards white by 90 % → 76 %, or darkened by 62 % → 84 %. Default and Dark have
 /// their own background layer; for them the neutral one is returned.
 List<Color> themeBackground(IconAppearance look, Color tint) {
@@ -102,6 +102,7 @@ List<Color> themeBackground(IconAppearance look, Color tint) {
   const white = Color(0xFFFFFFFF);
   return switch (look) {
     IconAppearance.clear => const [Color(0x80FFFFFF), Color(0x40FFFFFF)],
+    IconAppearance.clearDark => const [Color(0x803A3A3C), Color(0x8C000000)],
     IconAppearance.tinted => [mix(tint, white, 0.90), mix(tint, white, 0.76)],
     IconAppearance.tintedDark => [darken(0.62), darken(0.84)],
     IconAppearance.light => neutralLight,
@@ -122,6 +123,7 @@ ColorFilter? foregroundFilter(IconAppearance look, Color tint) {
   );
   final (Color, Color)? ramp = switch (look) {
     IconAppearance.clear => (const Color(0xFF696969), white),
+    IconAppearance.clearDark => (const Color(0xFF969696), white),
     IconAppearance.tinted => (deep, white),
     IconAppearance.tintedDark => (deep, Color.lerp(tint, white, 0.8)!),
     IconAppearance.light || IconAppearance.dark => null,
@@ -401,7 +403,8 @@ class SilicaIcon extends StatelessWidget {
           appearance: switch (system.iconStyle) {
             SystemIconStyle.standard => IconAppearance.light,
             SystemIconStyle.dark => IconAppearance.dark,
-            SystemIconStyle.clear => IconAppearance.clear,
+            SystemIconStyle.clear =>
+              night ? IconAppearance.clearDark : IconAppearance.clear,
             SystemIconStyle.tinted =>
               night ? IconAppearance.tintedDark : IconAppearance.tinted,
           },

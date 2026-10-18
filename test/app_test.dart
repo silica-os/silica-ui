@@ -52,29 +52,30 @@ void main() {
     expect(calls.single.arguments, {'value': true});
   });
 
-  testWidgets('a reopen builds a new window: the closed one does not come back', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      SilicaAppWindow(builder: (context) => const Center(child: _Counter())),
-    );
-    await tester.tap(find.text('0'));
-    await tester.pump();
-    expect(find.text('1'), findsOneWidget);
+  testWidgets(
+    'a reopen builds a new window: the closed one does not come back',
+    (tester) async {
+      await tester.pumpWidget(
+        SilicaAppWindow(builder: (context) => const Center(child: _Counter())),
+      );
+      await tester.tap(find.text('0'));
+      await tester.pump();
+      expect(find.text('1'), findsOneWidget);
 
-    // The last window closes: its widgets go, the app keeps running.
-    await SilicaApp.handle('lastWindowClosed', const {});
-    await tester.pump();
-    expect(find.byType(_Counter), findsNothing);
+      // The last window closes: its widgets go, the app keeps running.
+      await SilicaApp.handle('lastWindowClosed', const {});
+      await tester.pump();
+      expect(find.byType(_Counter), findsNothing);
 
-    // A reopen with no window: a new window, built from scratch, then openWindow.
-    calls.clear();
-    await SilicaApp.handle('reopen', const {'windowless': true});
-    await tester.pump();
-    expect(find.text('0'), findsOneWidget);
-    await tester.pump();
-    expect(calls.map((c) => c.method), contains('openWindow'));
-  });
+      // A reopen with no window: a new window, built from scratch, then openWindow.
+      calls.clear();
+      await SilicaApp.handle('reopen', const {'windowless': true});
+      await tester.pump();
+      expect(find.text('0'), findsOneWidget);
+      await tester.pump();
+      expect(calls.map((c) => c.method), contains('openWindow'));
+    },
+  );
 
   testWidgets('a reopen with a window on screen changes nothing', (
     tester,

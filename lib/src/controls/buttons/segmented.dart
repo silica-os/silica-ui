@@ -816,9 +816,8 @@ class _SegmentedControlState extends State<SegmentedControl>
         : GlassLens(
             rect: lensRect,
             presence: presence,
-            style: GlassLensStyle.of(
-              context,
-            ).copyWith(fill: GlassLensMetrics.clearFill),
+            style: GlassLensStyle.of(context)
+                .copyWith(fill: GlassLensMetrics.clearFill),
             content: backdrop
                 ? null
                 : Stack(

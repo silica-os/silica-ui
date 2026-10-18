@@ -552,9 +552,8 @@ class _ComboBoxState extends State<ComboBox> with _MenuButton<ComboBox> {
                   style: controlTextStyle(size, textColor),
                   cursorColor: ControlAccent.of(context),
                   backgroundCursorColor: colors.textDisabled,
-                  selectionColor: ControlAccent.of(
-                    context,
-                  ).withValues(alpha: 0.3),
+                  selectionColor: ControlAccent.of(context)
+                      .withValues(alpha: 0.3),
                   maxLines: 1,
                   onChanged: widget.onChanged,
                 ),

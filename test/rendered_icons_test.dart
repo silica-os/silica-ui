@@ -17,13 +17,14 @@ const String svg =
 
 const String rendered = '''
   "rendered": { "default": "icon.png", "dark": "icon-dark.png",
-                "clear": "icon-clear.png",
+                "clear": "icon-clear.png", "clear-dark": "icon-clear-dark.png",
                 "tinted": "icon-tinted.png", "tinted-dark": "icon-tinted-dark.png" }''';
 
 const List<String> pngs = [
   'icon.png',
   'icon-dark.png',
   'icon-clear.png',
+  'icon-clear-dark.png',
   'icon-tinted.png',
   'icon-tinted-dark.png',
 ];
@@ -127,7 +128,7 @@ void main() {
     'the manifest lists one PNG per style; bad or missing entries are skipped',
     () {
       final mail = findSilicaIcon('mail', env: env)!;
-      expect(mail.rendered.length, 5);
+      expect(mail.rendered.length, 6);
       expect(mail.renderedFor(IconAppearance.light), endsWith('/icon.png'));
       expect(
         mail.renderedFor(IconAppearance.tintedDark),
@@ -168,6 +169,9 @@ void main() {
     await show(tester, 'mail', appearance: IconAppearance.clear);
     expect(drawnPng(tester), 'icon-clear.png');
     expect(find.byType(BackdropFilter), findsOneWidget);
+
+    await show(tester, 'mail', appearance: IconAppearance.clearDark);
+    expect(drawnPng(tester), 'icon-clear-dark.png');
 
     await show(tester, 'mail', appearance: IconAppearance.tinted);
     expect(drawnPng(tester), 'icon-tinted.png');

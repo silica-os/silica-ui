@@ -97,49 +97,44 @@ void main() {
     },
   );
 
-  test(
-    'the AppIcon request carries folder, pixels, scale, look and accent',
-    () async {
-      final calls = <MethodCall>[];
-      messenger.setMockMethodCallHandler(SilicaThumbnails.channel, (
-        call,
-      ) async {
-        calls.add(call);
-        return ['/cache/x.png'];
-      });
-      expect(
-        await SilicaThumbnails.appIcon(
-          '/apps/clock/icon',
-          256,
-          scale: 2,
-          look: IconAppearance.tintedDark,
-          accent: const Color(0xFF123456),
-        ),
-        '/cache/x.png',
-      );
-      final args = calls.single.arguments as Map;
-      expect(args['interface'], 'dev.frascella.Silica.Thumbnails1');
-      expect(args['method'], 'AppIcon');
-      expect(args['signature'], 'suduu');
-      expect(args['args'], ['/apps/clock/icon', 256, 2.0, 6, 0x123456]);
-      // The accent only goes with the tinted looks; a relative folder is refused.
+  test('the AppIcon request carries folder, pixels, scale, look and accent', () async {
+    final calls = <MethodCall>[];
+    messenger.setMockMethodCallHandler(SilicaThumbnails.channel, (call) async {
+      calls.add(call);
+      return ['/cache/x.png'];
+    });
+    expect(
       await SilicaThumbnails.appIcon(
         '/apps/clock/icon',
-        64,
-        look: IconAppearance.clear,
+        256,
+        scale: 2,
+        look: IconAppearance.tintedDark,
         accent: const Color(0xFF123456),
-      );
-      expect((calls.last.arguments as Map)['args'], [
-        '/apps/clock/icon',
-        64,
-        1.0,
-        1,
-        0,
-      ]);
-      expect(await SilicaThumbnails.appIcon('relative', 64), isNull);
-      expect(await SilicaThumbnails.appIcon('/a', 0), isNull);
-    },
-  );
+      ),
+      '/cache/x.png',
+    );
+    final args = calls.single.arguments as Map;
+    expect(args['interface'], 'dev.frascella.Silica.Thumbnails1');
+    expect(args['method'], 'AppIcon');
+    expect(args['signature'], 'suduu');
+    expect(args['args'], ['/apps/clock/icon', 256, 2.0, 6, 0x123456]);
+    // The accent only goes with the tinted looks; a relative folder is refused.
+    await SilicaThumbnails.appIcon(
+      '/apps/clock/icon',
+      64,
+      look: IconAppearance.clear,
+      accent: const Color(0xFF123456),
+    );
+    expect((calls.last.arguments as Map)['args'], [
+      '/apps/clock/icon',
+      64,
+      1.0,
+      1,
+      0,
+    ]);
+    expect(await SilicaThumbnails.appIcon('relative', 64), isNull);
+    expect(await SilicaThumbnails.appIcon('/a', 0), isNull);
+  });
 
   testWidgets('the service image shows with the live layers on top', (
     tester,

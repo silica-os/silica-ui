@@ -88,9 +88,9 @@ Path popoverPath(Size size, TipEdge edge, double tip) {
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(r)),
     );
   // The measured outline on the top edge pointing up, then turned onto its edge.
-  final arrow = PopoverMetrics.outlineOn(
-    edge,
-  ).path().transform((Matrix4.identity()..scaleByDouble(1, -1, 1, 1)).storage);
+  final arrow = PopoverMetrics.outlineOn(edge)
+      .path()
+      .transform((Matrix4.identity()..scaleByDouble(1, -1, 1, 1)).storage);
   final placed = switch (edge) {
     TipEdge.top => arrow.shift(Offset(tip, 0)),
     TipEdge.bottom => arrow.transform(

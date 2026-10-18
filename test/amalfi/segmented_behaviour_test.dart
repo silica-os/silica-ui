@@ -572,9 +572,8 @@ void main() {
 
     test('the kit capsule keeps the smoothing on the long side', () {
       // Segments/Action/Icon 2/Regular: 56 × 28, the corner starts 22.4 from the end.
-      final path = const AmalfiSmoothBorder(
-        radius: 14,
-      ).getOuterPath(const Rect.fromLTWH(0, 0, 56, 28));
+      final path = const AmalfiSmoothBorder(radius: 14)
+          .getOuterPath(const Rect.fromLTWH(0, 0, 56, 28));
       expect(path.contains(const Offset(22.5, 0.3)), isTrue);
       expect(path.contains(const Offset(1, 3)), isFalse);
       final bounds = path.getBounds();

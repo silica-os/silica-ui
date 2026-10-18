@@ -301,8 +301,7 @@ void main() {
           },
           deviations: const {
             'Window controls': measuredPitch,
-            'Panel title':
-                'kit panel title at x 124, not centred; ours centred in the bar (x 132)',
+            'Panel title': 'kit panel title at x 124, not centred; ours centred in the bar (x 132)',
             'Separator':
                 'kit panel separator under the 48 pt bar (y 48); the title bar draws it '
                 'inside its 48 pt (y 47), as Titlebars/Title Bar does',
@@ -343,8 +342,7 @@ void main() {
           },
           deviations: const {
             'Window controls': measuredPlace,
-            'Utility title':
-                'kit title frame 54 wide (the text); ours rounded to the grid (56)',
+            'Utility title': 'kit title frame 54 wide (the text); ours rounded to the grid (56)',
           },
           masks: [
             'Window controls',

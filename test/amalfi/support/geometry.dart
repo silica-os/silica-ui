@@ -405,9 +405,8 @@ void _checkStyle(
   final kitRadii = drawn(kit.corners?.radii ?? const []);
   final radii = drawn(r.radii);
   if (kitRadii.length != radii.length ||
-      [
-        for (var i = 0; i < radii.length; i++) _same(kitRadii[i], radii[i]),
-      ].contains(false)) {
+      [for (var i = 0; i < radii.length; i++) _same(kitRadii[i], radii[i])]
+          .contains(false)) {
     add('corners', '$what: corner radii $radii, kit $kitRadii');
   }
   // The smoothing only shows on corners that are not half a capsule.
