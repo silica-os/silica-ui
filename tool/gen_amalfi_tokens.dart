@@ -239,10 +239,9 @@ const _reserved = {
 /// `Accent/Amalfi Pressed` → `accentAmalfiPressed`, `ANSI Red` → `ansiRed`,
 /// `smallControl` → `smallControl`.
 String _camel(String name, String path) {
-  final words = _splitCamel(name)
-      .split(RegExp(r'[^A-Za-z0-9]+'))
-      .where((w) => w.isNotEmpty)
-      .toList();
+  final words = _splitCamel(
+    name,
+  ).split(RegExp(r'[^A-Za-z0-9]+')).where((w) => w.isNotEmpty).toList();
   if (words.isEmpty)
     throw TokenError('$path: "$name" has no letters or digits');
   final b = StringBuffer(words.first.toLowerCase());
@@ -1323,8 +1322,9 @@ void _writeStates(StringBuffer o, Map<String, Object?> states, _Colors colors) {
     if (!first) o.writeln();
     first = false;
     if (value is String) {
-      final m = RegExp(r'^(?:content|whole control) at ([0-9.]+) ?% opacity')
-          .firstMatch(value);
+      final m = RegExp(
+        r'^(?:content|whole control) at ([0-9.]+) ?% opacity',
+      ).firstMatch(value);
       final pct = m == null ? null : double.tryParse(m.group(1)!);
       if (key != 'disabled' || pct == null) {
         throw TokenError('$path: cannot read "$value"');
@@ -1676,8 +1676,9 @@ void _writeWindowControls(StringBuffer o, Map<String, Object?> wc) {
     final fill = _list(_field(c, 'fill', p), '$p.fill');
     if (fill.length != 2) throw TokenError('$p.fill: expected [top, bottom]');
     final rim = _string(_field(c, 'rim', p), '$p.rim');
-    final rm = RegExp(r'^(#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?)\s+([0-9.]+)$')
-        .firstMatch(rim);
+    final rm = RegExp(
+      r'^(#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?)\s+([0-9.]+)$',
+    ).firstMatch(rim);
     final rimWidth = rm == null ? null : double.tryParse(rm.group(2)!);
     if (rm == null || rimWidth == null) {
       throw TokenError('$p.rim: expected "#RRGGBB <width>", got "$rim"');

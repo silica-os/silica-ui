@@ -61,10 +61,9 @@ void main() {
     });
 
     test('fails with a message on bad input, never crashes', () {
-      String withColor(String value) =>
-          File(gen.tokensPath)
-              .readAsStringSync()
-              .replaceFirst('"#0E77E6FF"', value);
+      String withColor(String value) => File(
+        gen.tokensPath,
+      ).readAsStringSync().replaceFirst('"#0E77E6FF"', value);
       Matcher fails(String fragment) => throwsA(
         isA<gen.TokenError>().having(
           (e) => e.message,
@@ -82,20 +81,20 @@ void main() {
       );
       expect(() => _generate(tokens: '{'), fails('not valid JSON'));
       expect(() => _generate(tokens: '[]'), fails('expected an object'));
-      final unknown = File(gen.tokensPath)
-          .readAsStringSync()
-          .replaceFirst('"grid": {', '"grid": {"extra": 1, ');
+      final unknown = File(
+        gen.tokensPath,
+      ).readAsStringSync().replaceFirst('"grid": {', '"grid": {"extra": 1, ');
       expect(() => _generate(tokens: unknown), fails('unknown key "extra"'));
-      final missingDark = File(gen.tokensPath)
-          .readAsStringSync()
-          .replaceFirst('"Accent/Amalfi": "#3D95FFFF",', '');
+      final missingDark = File(
+        gen.tokensPath,
+      ).readAsStringSync().replaceFirst('"Accent/Amalfi": "#3D95FFFF",', '');
       expect(
         () => _generate(tokens: missingDark),
         fails('light and dark differ'),
       );
-      final badFont = File(gen.tokensPath)
-          .readAsStringSync()
-          .replaceFirst('"JetBrains Mono"', '"Unknown Mono"');
+      final badFont = File(
+        gen.tokensPath,
+      ).readAsStringSync().replaceFirst('"JetBrains Mono"', '"Unknown Mono"');
       expect(() => _generate(tokens: badFont), fails('not a font family'));
       final motion = File(gen.motionPath).readAsStringSync();
       expect(

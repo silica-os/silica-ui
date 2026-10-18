@@ -4,29 +4,32 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:silica_ui/silica_ui.dart';
 
 /// A control in a window: light or dark, active or inactive, with an overlay for menus.
-Widget harness(Widget child, {bool dark = false, bool active = true}) =>
-    MediaQuery(
-      data: MediaQueryData(
-        platformBrightness: dark ? Brightness.dark : Brightness.light,
-      ),
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: ToolbarScope(
-          active: active,
-          child: _Slot(
-            control: child,
-            // The overlay keeps its first entries: the entry reads the control from the slot.
-            overlay: Overlay(
-              initialEntries: [
-                OverlayEntry(
-                  builder: (context) => Center(child: _Slot.of(context)),
-                ),
-              ],
+Widget harness(
+  Widget child, {
+  bool dark = false,
+  bool active = true,
+}) => MediaQuery(
+  data: MediaQueryData(
+    platformBrightness: dark ? Brightness.dark : Brightness.light,
+  ),
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    child: ToolbarScope(
+      active: active,
+      child: _Slot(
+        control: child,
+        // The overlay keeps its first entries: the entry reads the control from the slot.
+        overlay: Overlay(
+          initialEntries: [
+            OverlayEntry(
+              builder: (context) => Center(child: _Slot.of(context)),
             ),
-          ),
+          ],
         ),
       ),
-    );
+    ),
+  ),
+);
 
 /// The glass talks to the compositor: here nobody answers.
 void muteGlass() {

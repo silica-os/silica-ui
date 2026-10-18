@@ -80,32 +80,35 @@ void main() {
     expect(icon.layers[1].shadow, isTrue);
   });
 
-  test('hostile manifest: broken JSON, missing files or files outside the folder are rejected', () {
-    final dir = Directory.systemTemp.createTempSync('silica-icon-');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    File('${dir.path}/background.svg').writeAsStringSync(svg);
-    expect(parseManifest(dir.path, '{'), isNull);
-    expect(parseManifest(dir.path, '[]'), isNull);
-    expect(parseManifest(dir.path, mailManifest), isNull);
-    expect(
-      parseManifest(
-        dir.path,
-        mailManifest.replaceAll('foreground.svg', '../../etc/passwd.svg'),
-      ),
-      isNull,
-    );
-    expect(
-      parseManifest(
-        dir.path,
-        mailManifest.replaceAll('"format": 1', '"format": 2'),
-      ),
-      isNull,
-    );
-    expect(
-      findSilicaIcon('../mail', env: {'SILICA_ICONS_DIR': dir.path}),
-      isNull,
-    );
-  });
+  test(
+    'hostile manifest: broken JSON, missing files or files outside the folder are rejected',
+    () {
+      final dir = Directory.systemTemp.createTempSync('silica-icon-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      File('${dir.path}/background.svg').writeAsStringSync(svg);
+      expect(parseManifest(dir.path, '{'), isNull);
+      expect(parseManifest(dir.path, '[]'), isNull);
+      expect(parseManifest(dir.path, mailManifest), isNull);
+      expect(
+        parseManifest(
+          dir.path,
+          mailManifest.replaceAll('foreground.svg', '../../etc/passwd.svg'),
+        ),
+        isNull,
+      );
+      expect(
+        parseManifest(
+          dir.path,
+          mailManifest.replaceAll('"format": 1', '"format": 2'),
+        ),
+        isNull,
+      );
+      expect(
+        findSilicaIcon('../mail', env: {'SILICA_ICONS_DIR': dir.path}),
+        isNull,
+      );
+    },
+  );
 
   test('dynamic clock and calendar', () {
     final root = iconTree({

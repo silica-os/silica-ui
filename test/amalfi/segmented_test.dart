@@ -44,7 +44,8 @@ Finder byKey(String key) => find.byKey(ValueKey(key));
 /// the 2 pt backdrop blur of Glass/Clear (`materials.md`); the lens rule (`AmalfiLens`, user
 /// decision 2026-10-16) takes a radius of half the height minus 1, the kit half the height.
 const lensDeviations = {
-  'Lens#blurs': 'kit Glass/Clear blur is a Sketch "Glass" blur; drawn as the 2 pt background blur',
+  'Lens#blurs':
+      'kit Glass/Clear blur is a Sketch "Glass" blur; drawn as the 2 pt background blur',
   'Lens#corners':
       'kit lens radius is half its height; the lens rule takes half its height minus 1 '
       '(user decision 2026-10-16)',

@@ -152,13 +152,15 @@ void main() {
     expect(calls.map((c) => c.method), ['zoom']);
     calls.clear();
     Directory('${dir.path}/.config/silica').createSync(recursive: true);
-    File('${dir.path}/.config/silica/dock.json')
-        .writeAsStringSync('{"titleBarDoubleClick":"minimize"}');
+    File(
+      '${dir.path}/.config/silica/dock.json',
+    ).writeAsStringSync('{"titleBarDoubleClick":"minimize"}');
     await doubleTap();
     expect(calls.map((c) => c.method), ['minimize']);
     calls.clear();
-    File('${dir.path}/.config/silica/dock.json')
-        .writeAsStringSync('{"titleBarDoubleClick":"none"}');
+    File(
+      '${dir.path}/.config/silica/dock.json',
+    ).writeAsStringSync('{"titleBarDoubleClick":"none"}');
     await doubleTap();
     expect(calls, isEmpty);
   });

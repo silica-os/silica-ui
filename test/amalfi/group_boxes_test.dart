@@ -83,7 +83,8 @@ void main() {
             ),
           },
           deviations: {
-            'Title': 'kit fixed-width title frame 88 for "Notifications" (84 on the grid)',
+            'Title':
+                'kit fixed-width title frame 88 for "Notifications" (84 on the grid)',
             'Box/Show banners': rows,
             'Box/Play sound': rows,
           },

@@ -293,45 +293,41 @@ void main() {
       }
     });
 
-    testWidgets(
-      'while pressed, the original labels are cut out under the lens',
-      (tester) async {
-        await pumpClock(tester, [], initial: 1);
-        const labelsKey = ValueKey('segmented labels');
-        // At rest nothing is clipped.
-        expect(tester.widget<ClipPath>(find.byKey(labelsKey)).clipper, isNull);
-        final press = await tester.startGesture(segmentCenter(tester, 1));
-        await tester.pump();
-        await ms(tester, 400);
-        final lens = lensRect(tester);
-        final track = trackRect(tester);
-        final clip = tester.widget<ClipPath>(find.byKey(labelsKey));
-        final size = tester.getSize(find.byKey(labelsKey));
-        final path = clip.clipper!.getClip(size);
-        // Local to the control: the lens centre and its ends are cut out, the rest is kept.
-        final local = lens.shift(-track.topLeft);
-        expect(path.contains(local.center), isFalse);
-        expect(path.contains(local.center + const Offset(0, 10)), isFalse);
-        expect(path.contains(local.centerLeft + const Offset(8, 0)), isFalse);
-        expect(path.contains(local.centerLeft - const Offset(2, 0)), isTrue);
-        expect(path.contains(local.centerRight + const Offset(2, 0)), isTrue);
-        // The "Alarms" label sits under the lens centre: it is clipped there, so only the
-        // magnified copy is seen.
-        expect(clip.clipBehavior, Clip.antiAlias);
-        expect(
-          find.descendant(
-            of: find.byKey(lensKey),
-            matching: find.text('Alarms'),
-          ),
-          findsOneWidget,
-        );
-        // Neighbouring labels outside the lens are still painted.
-        expect(path.contains(Offset(centre(0), 18)), isTrue);
-        await press.up();
-        await tester.pumpAndSettle();
-        expect(tester.widget<ClipPath>(find.byKey(labelsKey)).clipper, isNull);
-      },
-    );
+    testWidgets('while pressed, the original labels are cut out under the lens', (
+      tester,
+    ) async {
+      await pumpClock(tester, [], initial: 1);
+      const labelsKey = ValueKey('segmented labels');
+      // At rest nothing is clipped.
+      expect(tester.widget<ClipPath>(find.byKey(labelsKey)).clipper, isNull);
+      final press = await tester.startGesture(segmentCenter(tester, 1));
+      await tester.pump();
+      await ms(tester, 400);
+      final lens = lensRect(tester);
+      final track = trackRect(tester);
+      final clip = tester.widget<ClipPath>(find.byKey(labelsKey));
+      final size = tester.getSize(find.byKey(labelsKey));
+      final path = clip.clipper!.getClip(size);
+      // Local to the control: the lens centre and its ends are cut out, the rest is kept.
+      final local = lens.shift(-track.topLeft);
+      expect(path.contains(local.center), isFalse);
+      expect(path.contains(local.center + const Offset(0, 10)), isFalse);
+      expect(path.contains(local.centerLeft + const Offset(8, 0)), isFalse);
+      expect(path.contains(local.centerLeft - const Offset(2, 0)), isTrue);
+      expect(path.contains(local.centerRight + const Offset(2, 0)), isTrue);
+      // The "Alarms" label sits under the lens centre: it is clipped there, so only the
+      // magnified copy is seen.
+      expect(clip.clipBehavior, Clip.antiAlias);
+      expect(
+        find.descendant(of: find.byKey(lensKey), matching: find.text('Alarms')),
+        findsOneWidget,
+      );
+      // Neighbouring labels outside the lens are still painted.
+      expect(path.contains(Offset(centre(0), 18)), isTrue);
+      await press.up();
+      await tester.pumpAndSettle();
+      expect(tester.widget<ClipPath>(find.byKey(labelsKey)).clipper, isNull);
+    });
 
     testWidgets('paint order: track, pill, labels, lens', (tester) async {
       await pumpClock(tester, [], initial: 1);

@@ -229,8 +229,9 @@ void main() {
         ),
       );
       expect(
-        const AmalfiSmoothBorder.only(topRight: 8)
-            .lerpTo(const AmalfiSmoothBorder(radius: 8), 1),
+        const AmalfiSmoothBorder.only(
+          topRight: 8,
+        ).lerpTo(const AmalfiSmoothBorder(radius: 8), 1),
         const AmalfiSmoothBorder(radius: 8),
       );
       final inner = border.getInnerPath(rect);

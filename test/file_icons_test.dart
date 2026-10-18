@@ -66,8 +66,9 @@ Directory iconTree() {
     File('${root.path}/files/$id/icon.svg').writeAsStringSync(svg);
   }
   Directory('${root.path}/files/file-generic').createSync(recursive: true);
-  File('${root.path}/files/file-generic/icon.json')
-      .writeAsStringSync(manifest('file-generic', dynamic: labelRules));
+  File(
+    '${root.path}/files/file-generic/icon.json',
+  ).writeAsStringSync(manifest('file-generic', dynamic: labelRules));
   File('${root.path}/files/file-generic/icon.svg').writeAsStringSync(svg);
   Directory('${root.path}/badges').createSync();
   for (final name in ['alias', 'unreadable', 'locked', 'cloud']) {

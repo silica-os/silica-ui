@@ -260,59 +260,55 @@ void main() {
       ),
     );
 
-    testWidgets(
-      'shows after the delay, moves at once, hides on leave and press',
-      (tester) async {
-        // Lets a fade run to its end (its ticker starts on the frame after it is started).
-        Future<void> fade() async {
-          await tester.pump();
-          await tester.pump(AmalfiFades.quick.duration * 2);
-          await tester.pump();
-        }
+    testWidgets('shows after the delay, moves at once, hides on leave and press', (
+      tester,
+    ) async {
+      // Lets a fade run to its end (its ticker starts on the frame after it is started).
+      Future<void> fade() async {
+        await tester.pump();
+        await tester.pump(AmalfiFades.quick.duration * 2);
+        await tester.pump();
+      }
 
-        Offset centre(String key) =>
-            tester.getCenter(find.byKey(ValueKey(key)));
+      Offset centre(String key) => tester.getCenter(find.byKey(ValueKey(key)));
 
-        await pumpTwo(tester);
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        addTearDown(mouse.removePointer);
-        await mouse.addPointer(location: const Offset(300, 300));
-        await mouse.moveTo(centre('a'));
-        await tester.pump(
-          AmalfiDelays.tooltip - const Duration(milliseconds: 1),
-        );
-        expect(find.text('Tip a'), findsNothing);
-        await tester.pump(const Duration(milliseconds: 1));
-        await fade();
-        expect(find.text('Tip a'), findsOneWidget);
-        expect(
-          tester.getTopLeft(find.byType(AmalfiTooltip)).dy,
-          28 + AmalfiTooltipMetrics.distance,
-        );
+      await pumpTwo(tester);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: const Offset(300, 300));
+      await mouse.moveTo(centre('a'));
+      await tester.pump(AmalfiDelays.tooltip - const Duration(milliseconds: 1));
+      expect(find.text('Tip a'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 1));
+      await fade();
+      expect(find.text('Tip a'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byType(AmalfiTooltip)).dy,
+        28 + AmalfiTooltipMetrics.distance,
+      );
 
-        // Moving to the neighbour: its tooltip replaces the first one without the delay.
-        await mouse.moveTo(centre('b'));
-        await fade();
-        expect(find.text('Tip a'), findsNothing);
-        expect(find.text('Tip b'), findsOneWidget);
-        expect(find.text('⌘B'), findsOneWidget);
+      // Moving to the neighbour: its tooltip replaces the first one without the delay.
+      await mouse.moveTo(centre('b'));
+      await fade();
+      expect(find.text('Tip a'), findsNothing);
+      expect(find.text('Tip b'), findsOneWidget);
+      expect(find.text('⌘B'), findsOneWidget);
 
-        // Leaving fades it out.
-        await mouse.moveTo(const Offset(300, 300));
-        await fade();
-        expect(find.text('Tip b'), findsNothing);
+      // Leaving fades it out.
+      await mouse.moveTo(const Offset(300, 300));
+      await fade();
+      expect(find.text('Tip b'), findsNothing);
 
-        // A press hides it.
-        await mouse.moveTo(centre('a'));
-        await tester.pump(AmalfiDelays.tooltip);
-        await fade();
-        expect(find.text('Tip a'), findsOneWidget);
-        await mouse.down(centre('a'));
-        await fade();
-        expect(find.text('Tip a'), findsNothing);
-        await mouse.up();
-      },
-    );
+      // A press hides it.
+      await mouse.moveTo(centre('a'));
+      await tester.pump(AmalfiDelays.tooltip);
+      await fade();
+      expect(find.text('Tip a'), findsOneWidget);
+      await mouse.down(centre('a'));
+      await fade();
+      expect(find.text('Tip a'), findsNothing);
+      await mouse.up();
+    });
 
     testWidgets('the message is the hint for screen readers', (tester) async {
       final semantics = tester.ensureSemantics();

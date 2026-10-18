@@ -171,7 +171,9 @@ List<FieldCase> textFieldCases() => [
         placeholder: 'Write a note',
         enabled: state != 'Disabled',
         controller: text(
-          state == 'Placeholder' ? '' : 'Rooms face the sea.\nBreakfast is served on the terrace until ten.',
+          state == 'Placeholder'
+              ? ''
+              : 'Rooms face the sea.\nBreakfast is served on the terrace until ten.',
         ),
       ),
       layers: {

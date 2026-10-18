@@ -197,8 +197,9 @@ class _AmalfiSidebarRowState extends State<AmalfiSidebarRow> {
     // Appearance › sidebar icon size.
     final size = SystemLookScope.of(context).sidebarIconSize.metrics;
     final labelStyle = selected
-        ? AmalfiType.sidebar(color: labelColor)
-              .copyWith(fontWeight: FontWeight.w600, fontSize: size.text)
+        ? AmalfiType.sidebar(
+            color: labelColor,
+          ).copyWith(fontWeight: FontWeight.w600, fontSize: size.text)
         : AmalfiType.sidebar(color: labelColor).copyWith(fontSize: size.text);
     final icon = widget.icon;
     final badge = widget.badge;

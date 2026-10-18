@@ -330,7 +330,8 @@ void main() {
                 'Lens': layerOf(root, AmalfiLayerKeys.lens),
               },
               deviations: {
-                'Lens#blurs': 'kit encodes the Clear lens as a Glass blur, not Background',
+                'Lens#blurs':
+                    'kit encodes the Clear lens as a Glass blur, not Background',
               },
             );
             await expectKitPixels(

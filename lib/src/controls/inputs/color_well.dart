@@ -398,8 +398,9 @@ class ColorWheelPainter extends CustomPainter {
       c,
       r,
       Paint()
-        ..shader = RadialGradient(colors: [white, white.withValues(alpha: 0)])
-            .createShader(rect),
+        ..shader = RadialGradient(
+          colors: [white, white.withValues(alpha: 0)],
+        ).createShader(rect),
     );
     final a = hsv.hue * math.pi / 180;
     final at = c + Offset(math.cos(a), math.sin(a)) * hsv.saturation * r;
