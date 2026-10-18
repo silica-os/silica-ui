@@ -357,11 +357,9 @@ class _SilicaAppWindowState extends State<SilicaAppWindow> {
       _open = true;
       _generation++;
     });
-    // Shown after the frame that draws it.
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      unawaited(SilicaApp.openWindow());
-    });
-    SchedulerBinding.instance.scheduleFrame();
+    // At once, not after a frame: with no window on screen the engine draws no frame until the
+    // embedder lets it (openWindow starts that and shows the window after the frame it draws).
+    unawaited(SilicaApp.openWindow());
   }
 
   @override

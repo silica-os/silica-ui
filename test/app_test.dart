@@ -148,10 +148,12 @@ void main() {
         await tester.tap(find.text('File › Open…'));
         expect(asked, hasLength(2));
         asked.last.complete(true);
-        await tester.pump();
+        // Asked at once, before any frame: with no window the engine draws none until the
+        // embedder shows the window.
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        expect(calls.map((c) => c.method), contains('openWindow'));
         await tester.pump();
         expect(find.text('0'), findsOneWidget);
-        expect(calls.map((c) => c.method), contains('openWindow'));
       });
 
       testWidgets('launched with a document: the window as usual', (
