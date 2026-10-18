@@ -5,3 +5,4 @@
 
 export 'menus/menu.dart';
 export 'menus/menu_item.dart';
+export 'menus/menu_placement.dart';

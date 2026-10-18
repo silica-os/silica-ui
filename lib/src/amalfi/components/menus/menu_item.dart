@@ -98,7 +98,11 @@ class AmalfiMenuItem extends StatelessWidget {
     this.destructive = false,
     this.enabled = true,
     this.highlighted = false,
+    this.height = AmalfiMenuMetrics.itemHeight,
   });
+
+  /// The row's height: 24; a pop-up button's menu uses 22 or 19 for small controls.
+  final double height;
 
   /// The text.
   final String label;
@@ -204,7 +208,7 @@ class AmalfiMenuItem extends StatelessWidget {
         child: row,
       );
     }
-    row = SizedBox(height: AmalfiMenuMetrics.itemHeight, child: row);
+    row = SizedBox(height: height, child: row);
     return enabled
         ? row
         : Opacity(opacity: AmalfiStates.disabledOpacity, child: row);
@@ -214,13 +218,20 @@ class AmalfiMenuItem extends StatelessWidget {
 /// A section header of a menu (kit `Menus/Item/Header`): [label] in Label `Text/Tertiary`,
 /// 24 tall like an item.
 class AmalfiMenuHeader extends StatelessWidget {
-  const AmalfiMenuHeader({super.key, required this.label});
+  const AmalfiMenuHeader({
+    super.key,
+    required this.label,
+    this.height = AmalfiMenuMetrics.itemHeight,
+  });
 
   final String label;
 
+  /// The row's height.
+  final double height;
+
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: AmalfiMenuMetrics.itemHeight,
+    height: height,
     child: Padding(
       padding: AmalfiMenuMetrics.headerPadding,
       child: Row(

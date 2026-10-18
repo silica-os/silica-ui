@@ -1,8 +1,10 @@
 // Pop-up and pull-down buttons (kit `Buttons/<Pop-up|Pull-down>/<size>/<state>` and
 // `…/Open`): the opaque control look, a label on the left and a chevron on the right; pressed,
-// they open a menu 4 below.
+// they open a menu: a pop-up button's over the button with the chosen row on it, a
+// pull-down's 3 below (`AmalfiPopUpMenuMetrics`, docs/spec/menus.md).
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
@@ -12,18 +14,13 @@ import '../../smooth_border.dart';
 import '../../theme.dart';
 import '../../tokens.g.dart';
 import '../menus/menu.dart';
+import '../menus/menu_item.dart';
+import '../menus/menu_placement.dart';
 import 'button_base.dart';
 import 'button_surface.dart';
 
 /// The measures of pop-up and pull-down buttons per size, from the kit masters.
 abstract final class AmalfiPopUpButtonMetrics {
-  /// Between the button and its menu (`Buttons/Pop-up/Open`).
-  static const double menuDistance = 4;
-
-  /// The narrowest menu (`Buttons/Pop-up/Open` nests the 200 wide `Menus/Menu/Simple`); it
-  /// is at least as wide as the button, and wider when its rows need it.
-  static const double menuMinWidth = 200;
-
   /// The default width: 92 / 108 / 124 / 148.
   static double width(AmalfiControlSize size) => switch (size) {
     AmalfiControlSize.mini => 92,
@@ -142,6 +139,7 @@ class AmalfiPopUpButton<T> extends StatelessWidget {
           ),
       ],
       highlighted: selected,
+      popUp: true,
     );
   }
 }
@@ -200,6 +198,7 @@ class AmalfiPullDownButton extends StatelessWidget {
       focusNode: focusNode,
       entries: entries,
       highlighted: -1,
+      popUp: false,
     );
   }
 
@@ -223,6 +222,7 @@ class _MenuButton extends StatefulWidget {
     required this.focusNode,
     required this.entries,
     required this.highlighted,
+    required this.popUp,
   });
 
   final String label;
@@ -235,6 +235,9 @@ class _MenuButton extends StatefulWidget {
 
   /// The index in [entries] highlighted when the menu opens; -1: none.
   final int highlighted;
+
+  /// A pop-up button's menu (the chosen row over the button) or a pull-down's (below it).
+  final bool popUp;
 
   /// Whether some action can be chosen.
   bool get enabled => entries.any((e) => e is AmalfiMenuAction && e.selectable);
@@ -251,13 +254,15 @@ class _MenuButtonState extends State<_MenuButton>
 
   /// What had the focus before the menu opened; it gets it back when the menu closes.
   FocusNode? _returnFocus;
+  // The menu appears complete in one frame (the value starts at 1 when shown) and fades out
+  // over ~190 ms, ease-out, on Esc and after a choice.
   late final AnimationController _fade = AnimationController(
     vsync: this,
-    duration: AmalfiFades.instant.duration,
+    duration: AmalfiPopUpMenuMetrics.fadeOut,
   );
   late final Animation<double> _opacity = CurvedAnimation(
     parent: _fade,
-    curve: AmalfiFades.instant.curve,
+    curve: AmalfiPopUpMenuMetrics.fadeCurve,
   );
 
   /// The menu while the system's menu service shows it (silica-desktop#241); the portal
@@ -364,7 +369,7 @@ class _MenuButtonState extends State<_MenuButton>
     if (!widget.enabled) return;
     _returnFocus = FocusManager.instance.primaryFocus;
     setState(_portal.show);
-    _fade.forward();
+    _fade.value = 1;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _portal.isShowing) _menuFocus.requestFocus();
     });
@@ -490,13 +495,23 @@ class _MenuButtonState extends State<_MenuButton>
       target.getTransformTo(overlay),
       Offset.zero & target.size,
     );
-    final minWidth = rect.width > AmalfiPopUpButtonMetrics.menuMinWidth
+    final view = overlay.size;
+    final bounds = Offset.zero & view;
+    final geometry = _geometry();
+    final place = _placement(rect, bounds, 0, geometry);
+    final minWidth = widget.popUp
         ? rect.width
-        : AmalfiPopUpButtonMetrics.menuMinWidth;
+        : rect.width - AmalfiPopUpMenuMetrics.pullDownNarrower;
+    final rows = AmalfiPopUpControl.ofHeight(rect.height);
     return AmalfiTheme(
       brightness: AmalfiTheme.of(context).brightness,
       child: CustomSingleChildLayout(
-        delegate: _MenuLayout(rect),
+        delegate: _MenuLayout(
+          rect,
+          popUp: widget.popUp,
+          geometry: geometry,
+          first: widget.highlighted <= 0,
+        ),
         child: TapRegion(
           groupId: _tapGroup,
           onTapOutside: (_) => _close(),
@@ -507,7 +522,12 @@ class _MenuButtonState extends State<_MenuButton>
               initialHighlight: widget.highlighted < 0
                   ? null
                   : widget.highlighted,
-              minWidth: minWidth,
+              minWidth: math.max(0, minWidth),
+              padding: AmalfiPopUpMenuMetrics.padding,
+              itemHeight: AmalfiPopUpMenuMetrics.rowHeight(rows),
+              chooseDelay: AmalfiPopUpMenuMetrics.chooseFadeDelay,
+              initialScrollOffset: place.scroll,
+              scrollArrows: true,
               onDismiss: _close,
               focusNode: _menuFocus,
             ),
@@ -516,33 +536,115 @@ class _MenuButtonState extends State<_MenuButton>
       ),
     );
   }
+
+  /// The menu's height and the top of the chosen row in it, with the rows of the button's
+  /// control class.
+  _MenuGeometry _geometry() {
+    final box = context.findRenderObject();
+    final h = box is RenderBox && box.hasSize
+        ? box.size.height
+        : widget.size.height;
+    final row = AmalfiPopUpMenuMetrics.rowHeight(
+      AmalfiPopUpControl.ofHeight(h),
+    );
+    var y = AmalfiPopUpMenuMetrics.padding;
+    double? selected;
+    for (var i = 0; i < widget.entries.length; i++) {
+      if (i == widget.highlighted) selected = y;
+      y += widget.entries[i] is AmalfiMenuDivider
+          ? AmalfiMenuMetrics.separatorHeight
+          : row;
+    }
+    return _MenuGeometry(
+      height: y + AmalfiPopUpMenuMetrics.padding,
+      selectedTop: selected ?? AmalfiPopUpMenuMetrics.padding,
+    );
+  }
+
+  AmalfiMenuPlacement _placement(
+    Rect control,
+    Rect bounds,
+    double width,
+    _MenuGeometry g,
+  ) => widget.popUp
+      ? AmalfiMenuPlacement.popUp(
+          control: control,
+          bounds: bounds,
+          width: width,
+          height: g.height,
+          selectedTop: g.selectedTop,
+          first: widget.highlighted <= 0,
+        )
+      : AmalfiMenuPlacement.pullDown(
+          control: control,
+          bounds: bounds,
+          width: width,
+          height: g.height,
+        );
 }
 
-/// Puts the menu 4 below the button, its leading edge on the button's; above it when there is
-/// no room below; always inside the overlay.
+class _MenuGeometry {
+  const _MenuGeometry({required this.height, required this.selectedTop});
+
+  final double height;
+  final double selectedTop;
+}
+
+/// Puts the menu by the measured rules ([AmalfiMenuPlacement]); always inside the overlay.
 class _MenuLayout extends SingleChildLayoutDelegate {
-  const _MenuLayout(this.target);
+  const _MenuLayout(
+    this.target, {
+    required this.popUp,
+    required this.geometry,
+    required this.first,
+  });
 
   final Rect target;
+  final bool popUp;
+  final _MenuGeometry geometry;
+  final bool first;
 
-  @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      constraints.loosen();
-
-  @override
-  Offset getPositionForChild(Size size, Size child) {
-    const d = AmalfiPopUpButtonMetrics.menuDistance;
-    var y = target.bottom + d;
-    if (y + child.height > size.height && target.top - d - child.height >= 0) {
-      y = target.top - d - child.height;
-    }
-    var x = target.left;
-    if (x + child.width > size.width) x = size.width - child.width;
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
-    return Offset(x, y);
+  AmalfiMenuPlacement _place(Size size, double width) {
+    final bounds = Offset.zero & size;
+    return popUp
+        ? AmalfiMenuPlacement.popUp(
+            control: target,
+            bounds: bounds,
+            width: width,
+            height: geometry.height,
+            selectedTop: geometry.selectedTop,
+            first: first,
+          )
+        : AmalfiMenuPlacement.pullDown(
+            control: target,
+            bounds: bounds,
+            width: width,
+            height: geometry.height,
+          );
   }
 
   @override
-  bool shouldRelayout(_MenuLayout old) => old.target != target;
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final height = _place(constraints.biggest, 0).height;
+    return BoxConstraints(
+      maxWidth: math.max(
+        0,
+        constraints.maxWidth - 2 * AmalfiPopUpMenuMetrics.screenMargin,
+      ),
+      minHeight: height,
+      maxHeight: height,
+    );
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size child) =>
+      _place(size, child.width).topLeft;
+
+  @override
+  bool shouldRelayout(_MenuLayout old) =>
+      old.target != target ||
+      old.popUp != popUp ||
+      old.first != first ||
+      old.geometry.height != geometry.height ||
+      old.geometry.selectedTop != geometry.selectedTop;
 }

@@ -17,11 +17,13 @@ import 'package:flutter/widgets.dart';
 
 import '../../../menu_service.dart';
 import '../../../popups.dart';
+import '../../foundation/foundation.dart';
 import '../../glass.dart';
 import '../../theme.dart';
 import '../../tokens.g.dart';
 import '../popup_presenter.dart';
 import 'menu_item.dart';
+import 'menu_placement.dart';
 
 /// A row of an Amalfi menu: [AmalfiMenuAction], [AmalfiMenuSection] or [AmalfiMenuDivider].
 @immutable
@@ -116,7 +118,27 @@ class AmalfiMenu extends StatelessWidget {
     this.minHeight = 0,
     this.group = 0,
     this.onSubmenusChanged,
+    this.padding = AmalfiMenuMetrics.padding,
+    this.itemHeight = AmalfiMenuMetrics.itemHeight,
+    this.chooseDelay = AmalfiMenuMetrics.chooseClose,
+    this.initialScrollOffset = 0,
+    this.scrollArrows = false,
   });
+
+  /// The space between the menu's edge and its rows (a pop-up button's menu: 5).
+  final double padding;
+
+  /// The height of the rows (22 or 19 for the menu of a small control).
+  final double itemHeight;
+
+  /// How long after a choice the menu closes (a pop-up button's: 150 ms).
+  final Duration chooseDelay;
+
+  /// How far the rows start scrolled, when the menu is shorter than they are.
+  final double initialScrollOffset;
+
+  /// Whether a cut end of the menu shows a scroll-arrow strip (see [AmalfiMenuList]).
+  final bool scrollArrows;
 
   /// The compositor glass group of the menu; its submenus use the next ones (see
   /// [AmalfiGlass.group]).
@@ -170,8 +192,12 @@ class AmalfiMenu extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: minHeight),
         child: Padding(
-          padding: const EdgeInsets.all(AmalfiMenuMetrics.padding),
+          padding: EdgeInsets.all(padding),
           child: AmalfiMenuList(
+            itemHeight: itemHeight,
+            chooseDelay: chooseDelay,
+            initialScrollOffset: initialScrollOffset,
+            scrollArrows: scrollArrows,
             entries: entries,
             onDismiss: onDismiss,
             onBack: onBack,
@@ -218,9 +244,26 @@ class AmalfiMenuList extends StatefulWidget {
     this.opaque = false,
     this.group = 0,
     this.onSubmenusChanged,
+    this.itemHeight = AmalfiMenuMetrics.itemHeight,
+    this.chooseDelay = AmalfiMenuMetrics.chooseClose,
+    this.initialScrollOffset = 0,
+    this.scrollArrows = false,
   });
 
   final List<AmalfiMenuEntry> entries;
+
+  /// The height of the rows.
+  final double itemHeight;
+
+  /// How long after a choice the menu closes.
+  final Duration chooseDelay;
+
+  /// The scroll offset the rows start at.
+  final double initialScrollOffset;
+
+  /// Whether a cut end shows a scroll-arrow strip ([AmalfiPopUpMenuMetrics.arrowStrip] tall,
+  /// the rows under it hidden); pointing at it scrolls.
+  final bool scrollArrows;
 
   /// The compositor glass group of this list's menu; its submenu is drawn in `group + 1`.
   final int group;
@@ -281,7 +324,10 @@ class _AmalfiMenuListState extends State<AmalfiMenuList> {
   Rect? _submenuPlacement;
   int _submenuOpenings = 0;
 
-  Timer? _submenuTimer, _deferTimer, _blinkTimer, _closeTimer;
+  Timer? _submenuTimer, _deferTimer, _blinkTimer, _closeTimer, _arrowTimer;
+  late final ScrollController _scroll = ScrollController(
+    initialScrollOffset: widget.initialScrollOffset,
+  );
   Offset? _lastPointer;
 
   /// The rectangles of the submenu panels last reported, and those of the nested ones.
@@ -336,9 +382,16 @@ class _AmalfiMenuListState extends State<AmalfiMenuList> {
 
   @override
   void dispose() {
-    for (final t in [_submenuTimer, _deferTimer, _blinkTimer, _closeTimer]) {
+    for (final t in [
+      _submenuTimer,
+      _deferTimer,
+      _blinkTimer,
+      _closeTimer,
+      _arrowTimer,
+    ]) {
       t?.cancel();
     }
+    _scroll.dispose();
     _ownFocus?.dispose();
     // A choice never gets lost: when this menu goes away during the blink (a submenu popup
     // closed under it), the action still runs and the menu it belongs to still closes,
@@ -597,7 +650,7 @@ class _AmalfiMenuListState extends State<AmalfiMenuList> {
     }
 
     _finishChoice = finish;
-    _closeTimer = Timer(AmalfiMenuMetrics.chooseClose, finish);
+    _closeTimer = Timer(widget.chooseDelay, finish);
   }
 
   /// The chosen action and the closing of the menu, while they wait for the blink to end.
@@ -693,11 +746,14 @@ class _AmalfiMenuListState extends State<AmalfiMenuList> {
           child: Listener(
             onPointerMove: (e) => _track(e.position),
             onPointerUp: (e) => _release(e.position),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: rows,
+            child: _scrolling(
+              SingleChildScrollView(
+                controller: _scroll,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: rows,
+                ),
               ),
             ),
           ),
@@ -706,12 +762,75 @@ class _AmalfiMenuListState extends State<AmalfiMenuList> {
     );
   }
 
+  /// The rows with the scroll-arrow strips of the cut ends ([AmalfiMenuList.scrollArrows]).
+  Widget _scrolling(Widget view) {
+    if (!widget.scrollArrows) return view;
+    const strip = AmalfiPopUpMenuMetrics.arrowStrip;
+    return ListenableBuilder(
+      listenable: _scroll,
+      builder: (context, _) {
+        final has = _scroll.hasClients;
+        final top = has && _scroll.offset > 0.5;
+        final bottom =
+            has && _scroll.offset < _scroll.position.maxScrollExtent - 0.5;
+        if (!has) {
+          // The extent is known after the first layout.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _scroll.hasClients) setState(() {});
+          });
+        }
+        Widget arrow(bool up) => Positioned(
+          left: 0,
+          right: 0,
+          top: up ? 0 : null,
+          bottom: up ? null : 0,
+          height: strip,
+          child: MouseRegion(
+            onEnter: (_) => _scrollBy(up ? -1 : 1),
+            onExit: (_) => _arrowTimer?.cancel(),
+            child: Center(
+              child: AmalfiGlyph(
+                up ? AmalfiGlyphs.chevronUp : AmalfiGlyphs.chevronDown,
+                color: AmalfiTheme.of(context).colors.textSecondary,
+                size: AmalfiMenuMetrics.chevron,
+              ),
+            ),
+          ),
+        );
+        return Stack(
+          children: [
+            ClipRect(
+              clipper: _StripClipper(top ? strip : 0, bottom ? strip : 0),
+              child: view,
+            ),
+            if (top) arrow(true),
+            if (bottom) arrow(false),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Scrolls while the pointer rests on a strip.
+  void _scrollBy(int direction) {
+    _arrowTimer?.cancel();
+    _arrowTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final p = _scroll.position;
+      _scroll.jumpTo(
+        (p.pixels + direction * 4).clamp(0, p.maxScrollExtent).toDouble(),
+      );
+    });
+  }
+
   Widget _row(int i, AmalfiMenuEntry entry) => switch (entry) {
     AmalfiMenuDivider() => const AmalfiMenuSeparator(),
     AmalfiMenuSection(:final label) => Semantics(
       header: true,
       label: label,
-      child: ExcludeSemantics(child: AmalfiMenuHeader(label: label)),
+      child: ExcludeSemantics(
+        child: AmalfiMenuHeader(label: label, height: widget.itemHeight),
+      ),
     ),
     final AmalfiMenuAction a => Semantics(
       button: true,
@@ -731,6 +850,7 @@ class _AmalfiMenuListState extends State<AmalfiMenuList> {
           destructive: a.destructive,
           enabled: a.selectable,
           highlighted: _highlight == i && !_blinkOff,
+          height: widget.itemHeight,
         ),
       ),
     ),
@@ -785,6 +905,22 @@ class _AmalfiMenuListState extends State<AmalfiMenuList> {
       ),
     );
   }
+}
+
+/// Hides the rows under the scroll-arrow strips.
+class _StripClipper extends CustomClipper<Rect> {
+  const _StripClipper(this.top, this.bottom);
+
+  final double top;
+  final double bottom;
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, top, size.width, size.height - bottom);
+
+  @override
+  bool shouldReclip(_StripClipper old) =>
+      old.top != top || old.bottom != bottom;
 }
 
 /// Puts a submenu beside its parent: its leading edge [AmalfiMenuMetrics.submenuOverlap]
