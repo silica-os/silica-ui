@@ -74,13 +74,33 @@ abstract final class SilicaThumbnails {
     int sizePx, {
     double scale = 1,
     bool noPreview = false,
+    IconAppearance look = IconAppearance.light,
+    Color? accent,
   }) {
     if (sizePx <= 0 || !scale.isFinite || scale <= 0) return Future.value();
-    final key = '$sizePx $scale $noPreview $file';
-    return _pendingIcons[key] ??= _requestIcon(file, sizePx, scale, noPreview)
+    final flags = iconFlags(noPreview: noPreview, look: look, accent: accent);
+    final key = '$sizePx $scale $flags $file';
+    return _pendingIcons[key] ??= _requestIcon(file, sizePx, scale, flags)
         .whenComplete(() {
           _pendingIcons.remove(key);
         });
+  }
+
+  /// The `flags` of `Icon`: bit 0 no preview; bits 1 to 3 the icon style as the `AppIcon`
+  /// appearance word (folders are drawn in it: dark, clear, tinted); bits 8 to 31 the accent of
+  /// the tinted styles (0: the service's default).
+  @visibleForTesting
+  static int iconFlags({
+    bool noPreview = false,
+    IconAppearance look = IconAppearance.light,
+    Color? accent,
+  }) {
+    final rgb = look.isTinted && accent != null
+        ? accent.toARGB32() & 0xFFFFFF
+        : 0;
+    return (noPreview ? iconNoPreview : 0) |
+        (look.serviceWord << 1) |
+        (rgb << 8);
   }
 
   static final Map<String, Future<ComposedIcon?>> _pendingIcons = {};
@@ -92,14 +112,14 @@ abstract final class SilicaThumbnails {
     Uri file,
     int sizePx,
     double scale,
-    bool noPreview,
+    int flags,
   ) async {
     try {
       final reply = await _call('Icon', 'sudu', [
         file.toString(),
         sizePx,
         scale,
-        noPreview ? iconNoPreview : 0,
+        flags,
       ]);
       if (reply.length < 2) return null;
       final path = reply[0];
@@ -125,6 +145,7 @@ abstract final class SilicaThumbnails {
     double scale = 1,
     IconAppearance look = IconAppearance.light,
     Color? accent,
+    bool bare = false,
   }) {
     if (sizePx <= 0 ||
         !scale.isFinite ||
@@ -136,16 +157,19 @@ abstract final class SilicaThumbnails {
     final rgb = look.isTinted && accent != null
         ? accent.toARGB32() & 0xFFFFFF
         : 0;
-    final key = '$iconDir $sizePx $scale ${look.serviceWord} $rgb';
-    return _pendingApps[key] ??=
-        _requestApp(iconDir, sizePx, scale, look.serviceWord, rgb).whenComplete(
-          () {
-            _pendingApps.remove(key);
-          },
-        );
+    final word = look.serviceWord + (bare ? bareAppearance : 0);
+    final key = '$iconDir $sizePx $scale $word $rgb';
+    return _pendingApps[key] ??= _requestApp(iconDir, sizePx, scale, word, rgb)
+        .whenComplete(() {
+          _pendingApps.remove(key);
+        });
   }
 
   static final Map<String, Future<String?>> _pendingApps = {};
+
+  /// Added to the `AppIcon` appearance word: only the foreground layers, no generated
+  /// background (the Clear icons, over the compositor's glass).
+  static const int bareAppearance = 8;
 
   static Future<String?> _requestApp(
     String iconDir,
@@ -292,7 +316,16 @@ class SilicaFileIcon extends StatefulWidget {
     this.revision,
     this.fit = BoxFit.contain,
     this.env,
+    this.look,
+    this.tint,
   });
+
+  /// The icon style folders are drawn in (Default, Dark, Clear, Tinted). Null: the system's
+  /// (Settings > Appearance > icon style), which is what the file manager and the shell want.
+  final IconAppearance? look;
+
+  /// The accent of the Tinted styles; null: the system's.
+  final Color? tint;
 
   /// The file or folder, as a `file://` URI.
   final Uri file;
@@ -338,6 +371,8 @@ class _SilicaFileIconState extends State<SilicaFileIcon> {
     if (old.file != widget.file ||
         old.size != widget.size ||
         old.preview != widget.preview ||
+        old.look != widget.look ||
+        old.tint != widget.tint ||
         old.revision != widget.revision) {
       if (old.file != widget.file) _path = null;
       _load();
@@ -349,11 +384,16 @@ class _SilicaFileIconState extends State<SilicaFileIcon> {
     final px = (widget.size * dpr).round();
     if (px <= 0 || !widget.size.isFinite) return;
     final generation = ++_generation;
+    final (look, accent) = widget.look != null
+        ? (widget.look!, widget.tint)
+        : systemIconLook(context);
     SilicaThumbnails.icon(
       widget.file,
       px,
       scale: dpr,
       noPreview: !widget.preview,
+      look: look,
+      accent: widget.tint ?? accent,
     ).then((icon) {
       if (!mounted || generation != _generation || icon == null) return;
       setState(() => _path = icon.path);

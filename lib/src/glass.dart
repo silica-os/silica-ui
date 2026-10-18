@@ -55,10 +55,17 @@ class Glass extends SingleChildRenderObjectWidget {
     this.tip,
     this.profile,
     this.profileShadow = false,
+    this.smoothing = 0,
     super.child,
   });
 
   final double radius;
+
+  /// Continuous corners (silica-glass-v1 version 9): 0–1, how far the corner spreads along the
+  /// edges, `radius` being the equivalent circular radius; 0 is a circular arc. The app icon
+  /// body is radius 214/824 of its side with 0.6. An older compositor draws a circle that
+  /// stands for it.
+  final double smoothing;
   final GlassMaterial material;
 
   /// The kind of surface (null: from [material]).
@@ -82,6 +89,7 @@ class Glass extends SingleChildRenderObjectWidget {
     tip: tip,
     profile: profile,
     profileShadow: profileShadow,
+    smoothing: smoothing,
   );
 
   @override
@@ -92,7 +100,8 @@ class Glass extends SingleChildRenderObjectWidget {
       ..group = group
       ..tip = tip
       ..profile = profile
-      ..profileShadow = profileShadow;
+      ..profileShadow = profileShadow
+      ..smoothing = smoothing;
   }
 }
 
@@ -142,7 +151,9 @@ class RenderGlass extends RenderProxyBox {
     GlassTip? tip,
     GlassProfile? profile,
     bool profileShadow = false,
-  }) : _radius = radius,
+    double smoothing = 0,
+  }) : _smoothing = smoothing,
+       _radius = radius,
        _material = material,
        _group = group,
        _tip = tip,
@@ -154,6 +165,14 @@ class RenderGlass extends RenderProxyBox {
   set profile(GlassProfile? value) {
     if (value == _profile) return;
     _profile = value;
+    GlassRegistry.instance.schedule();
+  }
+
+  double _smoothing;
+  double get smoothing => _smoothing;
+  set smoothing(double value) {
+    if (value == _smoothing) return;
+    _smoothing = value;
     GlassRegistry.instance.schedule();
   }
 
@@ -240,6 +259,7 @@ class RenderGlass extends RenderProxyBox {
       'width': rect.width,
       'height': rect.height,
       'radius': radius * factor,
+      if (smoothing > 0) 'smoothing': smoothing.clamp(0.0, 1.0),
       'material': material.name,
       'opacity': opacity,
       if (group != 0) 'group': group,

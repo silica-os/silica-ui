@@ -2,12 +2,15 @@
 // (`Thumbnails1.AppIcon`) with the bundled PNG as fallback, dynamic layers drawn live.
 
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:silica_ui/silica_ui.dart';
+import 'package:silica_ui/src/icons/silica_icon.dart' show clearGlassGroup;
 
 const _svg =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">'
@@ -53,6 +56,16 @@ Future<void> _pump(WidgetTester tester, Widget icon, {double dpr = 2}) async {
   );
   await tester.pump();
   await tester.pump();
+}
+
+Future<List<int>> _transparentPng(WidgetTester tester) async {
+  return (await tester.runAsync(() async {
+    final recorder = ui.PictureRecorder();
+    ui.Canvas(recorder);
+    final image = await recorder.endRecording().toImage(4, 4);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    return data!.buffer.asUint8List();
+  }))!;
 }
 
 int _live(WidgetTester tester) => find.byType(Transform).evaluate().length;
@@ -161,10 +174,96 @@ void main() {
     );
     final args = (calls.single.arguments as Map)['args'] as List;
     // 64 pt body -> 64 * 1024 / 824 pt canvas at 2x.
-    expect(args, [dir.path, (64 * 1024 / 824 * 2).round(), 2.0, 1, 0]);
-    expect(find.byType(BackdropFilter), findsOneWidget);
+    // Clear asks for the bare composition (1 + 8): the body is the compositor's glass.
+    expect(args, [dir.path, (64 * 1024 / 824 * 2).round(), 2.0, 9, 0]);
+    expect(find.byType(BackdropFilter), findsNothing);
+    final glass = tester.widget<Glass>(find.byType(Glass));
+    expect(glass.profile, GlassProfile.control);
+    expect(glass.profileShadow, isFalse);
+    expect(glass.group, clearGlassGroup);
+    expect(glass.radius, closeTo(64 * 214 / 824, 1e-9));
+    // The body's continuous corner, not a circular arc.
+    expect(glass.smoothing, 0.6);
+    // ... and that is what the compositor is told.
+    final region = GlassRegistry.instance.regions.single;
+    expect(region['smoothing'], 0.6);
+    expect(region['radius'], closeTo(64 * 214 / 824, 1e-9));
+    expect(region['profile'], 'control');
+    // The region is the body's rectangle.
+    expect(tester.getSize(find.byType(Glass)), const Size(64, 64));
     // Hour and second hands (the canvas is above 64 pt): the cap does not rotate.
     expect(_live(tester), greaterThanOrEqualTo(2));
+  });
+
+  testWidgets('a Clear icon has no shadow inside its body, only around it', (
+    tester,
+  ) async {
+    final dir = _folder();
+    // The service answers with a fully transparent foreground.
+    final blank = await _transparentPng(tester);
+    File('${dir.path}/service.png').writeAsBytesSync(blank);
+    messenger.setMockMethodCallHandler(
+      SilicaThumbnails.channel,
+      (call) async => ['${dir.path}/service.png'],
+    );
+    final icon = parseManifest(dir.path, _manifest)!;
+    Future<ui.Image> render(IconAppearance look) async {
+      final key = GlobalKey();
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: RepaintBoundary(
+              key: key,
+              child: SizedBox.square(
+                dimension: 200,
+                child: Center(
+                  child: SilicaIcon(
+                    LayeredSource(icon),
+                    side: 100,
+                    appearance: look,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      // Real time for the service's answer and the image decode.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
+      await tester.pump();
+      return (await tester.runAsync(() async {
+        final boundary =
+            key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        return boundary.toImage();
+      }))!;
+    }
+
+    Future<int> alpha(ui.Image image, int x, int y) async {
+      final data = (await tester.runAsync(
+        () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+      ))!;
+      return data.getUint8((y * image.width + x) * 4 + 3);
+    }
+
+    final clear = await render(IconAppearance.clear);
+    // The body is 100 pt in the middle of 200 (x and y 50..150): untouched at its centre and
+    // just inside its bottom edge, where a drop shadow would show...
+    // (the live clock hands are drawn on the middle, so sample beside them)
+    expect(await alpha(clear, 70, 130), 0);
+    expect(await alpha(clear, 100, 140), 0);
+    // ... and drawn just below it.
+    expect(await alpha(clear, 100, 154), greaterThan(0));
+
+    // Any other style keeps the shadow under the body (it is hidden by the opaque body there,
+    // here the body is transparent too, so the shadow shows through).
+    final light = await render(IconAppearance.light);
+    expect(await alpha(light, 100, 140), greaterThan(0));
   });
 
   testWidgets('a hidden or too small layer is not drawn', (tester) async {

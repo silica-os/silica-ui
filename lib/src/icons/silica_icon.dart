@@ -14,6 +14,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../silica_ui.dart' show uiFontFamily, uiText;
 import '../appearance.dart' show SilicaAppearance;
+import '../glass.dart';
 import '../system_look.dart';
 import 'file_icons.dart';
 import '../thumbnails.dart';
@@ -84,8 +85,22 @@ class IconShadow {
 const List<Color> neutralLight = [Color(0xFFFFFFFF), Color(0xFFEDEDF0)];
 const List<Color> neutralDark = [Color(0xFF3A3A3C), Color(0xFF161618)];
 
-/// Blur of the backdrop behind the translucent body of the Clear styles, per side of the body.
-const double clearBlurRatio = 0.08;
+/// The glass region behind a Clear icon has the body's shape: radius 214/824 of the side with
+/// the continuous corner of smoothing 0.6 (`tools/body.svg`; silica-glass-v1 version 9,
+/// `add_continuous_region`). A compositor without it draws the circle that stands for it.
+const double clearGlassRadiusRatio = 214 / 824;
+const double clearGlassSmoothing = 0.6;
+
+/// The glass of a Clear icon: the compositor's blur behind the body, declared as a region of the
+/// body's shape. The closest documented profile for a small piece of glass on a surface is
+/// `control` (Glass/Regular with the gentle lens of toolbar buttons and pills); the icon draws
+/// its own edge (the rim) and its shadow outside the body, so the profile's shadow is off.
+const GlassMaterial clearGlassMaterial = GlassMaterial.regular;
+const GlassProfile clearGlassProfile = GlassProfile.control;
+
+/// The glass group of the icons: Ossido merges glass only within a group, so an icon's glass
+/// never fuses with the Faro panel or the Dock it sits on, and it is drawn above them.
+const int clearGlassGroup = 50;
 
 /// The background the shell generates for an app in Clear and Tinted (icon-format.md, "Themes"),
 /// top to bottom: light glass white 50 % → 25 %, dark glass graphite 50 % → black 55 %; the tint
@@ -304,6 +319,28 @@ Path iconBodyPath(Rect r) {
   return path..close();
 }
 
+/// The icon style of the system (Settings › Appearance › Icon style) in the appearance of
+/// [context], and the accent the Tinted styles take. Default is [IconAppearance.light] (or
+/// [IconAppearance.dark] never: that one is the style "Dark", chosen explicitly).
+(IconAppearance, Color?) systemIconLook(BuildContext context) {
+  final system = SystemLookScope.maybeOf(context);
+  if (system == null) return (IconAppearance.light, null);
+  final night = SilicaAppearance.isDark(context);
+  final accent =
+      SystemLook.amalfiColor(system.accent, dark: false) ?? defaultIconTint;
+  return (
+    switch (system.iconStyle) {
+      SystemIconStyle.standard => IconAppearance.light,
+      SystemIconStyle.dark => IconAppearance.dark,
+      SystemIconStyle.clear =>
+        night ? IconAppearance.clearDark : IconAppearance.clear,
+      SystemIconStyle.tinted =>
+        night ? IconAppearance.tintedDark : IconAppearance.tinted,
+    },
+    accent,
+  );
+}
+
 /// Where the icon comes from.
 sealed class IconSource {
   const IconSource();
@@ -408,24 +445,13 @@ class SilicaIcon extends StatelessWidget {
     if (appearance == null && dark == null) {
       final system = SystemLookScope.maybeOf(context);
       if (system != null && system.iconStyle != SystemIconStyle.standard) {
-        final night = SilicaAppearance.isDark(context);
+        final (look, accent) = systemIconLook(context);
         return SilicaIcon(
           source,
           side: side,
-          appearance: switch (system.iconStyle) {
-            SystemIconStyle.standard => IconAppearance.light,
-            SystemIconStyle.dark => IconAppearance.dark,
-            SystemIconStyle.clear =>
-              night ? IconAppearance.clearDark : IconAppearance.clear,
-            SystemIconStyle.tinted =>
-              night ? IconAppearance.tintedDark : IconAppearance.tinted,
-          },
+          appearance: look,
           // The Tinted styles take the accent (the blue the PNGs carry for multicolour).
-          tint: system.iconStyle == SystemIconStyle.tinted
-              ? tint ??
-                    SystemLook.amalfiColor(system.accent, dark: false) ??
-                    defaultIconTint
-              : tint,
+          tint: look.isTinted ? tint ?? accent : tint,
           badges: badges,
           env: env,
           besideApps: besideApps,
@@ -466,6 +492,9 @@ class SilicaIcon extends StatelessWidget {
           preview: preview,
           revision: revision,
           env: env,
+          // Folders follow the icon style: an explicit one, else the system's.
+          look: appearance ?? (dark == null ? null : resolvedAppearance),
+          tint: tint,
         ),
       FlatSource(:final path) => _flat(path, canvas, body, isDark),
     };
@@ -557,7 +586,9 @@ class SilicaIcon extends StatelessWidget {
     final tintColor = tint ?? defaultIconTint;
     final customTint =
         look.isTinted && tintColor.toARGB32() != defaultIconTint.toARGB32();
-    final rendered = customTint ? null : icon.renderedFor(look);
+    // Clear has no background of its own: the glass behind the body is the compositor's, so the
+    // `rendered` PNG (a translucent body baked in) is never used for it.
+    final rendered = customTint || look.isClear ? null : icon.renderedFor(look);
     final filter = foregroundFilter(look, tintColor);
 
     Widget recolored(Widget child) => filter == null
@@ -576,23 +607,13 @@ class SilicaIcon extends StatelessWidget {
     };
     return Stack(
       children: [
-        CustomPaint(
-          size: Size.square(canvas),
-          painter: _DropPainter(body, side),
-        ),
+        _hostShadow(canvas, body, look),
+        // Clear: the compositor's blur behind the body.
+        if (look.isClear) _clearGlass(body),
         ClipPath(
           clipper: _BodyClipper(body),
           child: Stack(
             children: [
-              // Clear: the glass blurs what is behind the translucent body.
-              if (look.isClear)
-                BackdropFilter(
-                  filter: ImageFilter.blur(
-                    sigmaX: side * clearBlurRatio,
-                    sigmaY: side * clearBlurRatio,
-                  ),
-                  child: SizedBox.square(dimension: canvas),
-                ),
               if (rendered != null)
                 RenderedIconImage(
                   path: rendered,
@@ -614,6 +635,17 @@ class SilicaIcon extends StatelessWidget {
     );
   }
 
+  /// The drop shadow of the icon. Clear icons have a glass body: the shadow is drawn outside
+  /// the body only, or it would darken the glass.
+  Widget _hostShadow(double canvas, Rect body, IconAppearance look) =>
+      CustomPaint(
+        size: Size.square(canvas),
+        painter: _DropPainter(body, side, outsideOnly: look.isClear),
+      );
+
+  /// The glass region of a Clear icon: the body's shape, declared to the compositor.
+  Widget _clearGlass(Rect body) => _ClearGlass(body: body, side: side);
+
   /// The SVG layers of an app in the style [look]: Default and Dark as drawn (the `-dark`
   /// layers for Dark), Clear and Tinted with the generated background (icon-format.md, "Themes")
   /// and the foregrounds through [filter].
@@ -630,8 +662,12 @@ class SilicaIcon extends StatelessWidget {
     final children = <Widget>[];
     for (final (index, layer) in icon.layers.indexed) {
       final path = layer.pathFor(dark: isDark);
+      if (index == 0 && look.isClear) {
+        // The background is the compositor's glass: nothing is drawn.
+        continue;
+      }
       if (index == 0 && generated) {
-        // The background is the style's: glass or tint, top to bottom.
+        // The background is the style's: the tint, top to bottom.
         children.add(
           SizedBox.square(
             dimension: canvas,
@@ -822,12 +858,29 @@ class _BodyClipper extends CustomClipper<Path> {
 }
 
 class _DropPainter extends CustomPainter {
-  const _DropPainter(this.body, this.side);
+  const _DropPainter(this.body, this.side, {this.outsideOnly = false});
   final Rect body;
   final double side;
 
+  /// Draw the shadow only outside the body: under a glass body (Clear) it would darken the
+  /// blur the compositor puts there.
+  final bool outsideOnly;
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (outsideOnly) {
+      final everything = Path()
+        ..addRect(Rect.fromLTWH(0, 0, size.width, size.height).inflate(side));
+      canvas
+        ..save()
+        ..clipPath(
+          Path.combine(
+            PathOperation.difference,
+            everything,
+            iconBodyPath(body),
+          ),
+        );
+    }
     canvas.drawPath(
       iconBodyPath(body.shift(Offset(0, side * dropOffsetRatio))),
       Paint()
@@ -837,10 +890,39 @@ class _DropPainter extends CustomPainter {
           side * dropOffsetRatio,
         ),
     );
+    if (outsideOnly) canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_DropPainter old) => old.body != body;
+  bool shouldRepaint(_DropPainter old) =>
+      old.body != body || old.outsideOnly != outsideOnly;
+}
+
+/// The glass behind a Clear icon: a region with the body's shape (radius
+/// [clearGlassRadiusRatio], smoothing [clearGlassSmoothing]) of the profile for small glass pieces. The compositor draws the blur
+/// there; this draws nothing, and the icon's foreground goes on top.
+class _ClearGlass extends StatelessWidget {
+  const _ClearGlass({required this.body, required this.side});
+
+  final Rect body;
+  final double side;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fromRect(
+      rect: body,
+      child: IgnorePointer(
+        child: Glass(
+          radius: side * clearGlassRadiusRatio,
+          smoothing: clearGlassSmoothing,
+          material: clearGlassMaterial,
+          profile: clearGlassProfile,
+          group: clearGlassGroup,
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+  }
 }
 
 /// The bright edge of the body: lighter at the top, fading at the bottom. Its alpha is half of
@@ -933,6 +1015,7 @@ class _ServiceAppState extends State<_ServiceApp> {
       scale: dpr,
       look: widget.look,
       accent: tint,
+      bare: widget.look.isClear,
     ).then((path) {
       if (!mounted || generation != _generation) return;
       // A look that changed keeps the last image until the new one is there.
@@ -952,8 +1035,15 @@ class _ServiceAppState extends State<_ServiceApp> {
       children: [
         CustomPaint(
           size: Size.square(canvas),
-          painter: _DropPainter(widget.body, widget.side),
+          painter: _DropPainter(
+            widget.body,
+            widget.side,
+            outsideOnly: look.isClear,
+          ),
         ),
+        // Clear: the compositor's blur behind the body; the service composes only the
+        // foreground (the `bare` appearance).
+        if (look.isClear) _ClearGlass(body: widget.body, side: widget.side),
         ClipPath(
           clipper: _BodyClipper(widget.body),
           child: Stack(
@@ -968,15 +1058,6 @@ class _ServiceAppState extends State<_ServiceApp> {
                 else
                   SizedBox.square(dimension: canvas)
               else ...[
-                // Clear: the glass blurs what is behind the translucent body.
-                if (look.isClear)
-                  BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: widget.side * clearBlurRatio,
-                      sigmaY: widget.side * clearBlurRatio,
-                    ),
-                    child: SizedBox.square(dimension: canvas),
-                  ),
                 RenderedIconImage(
                   path: path,
                   canvas: canvas,

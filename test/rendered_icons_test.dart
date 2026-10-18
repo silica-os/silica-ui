@@ -163,15 +163,17 @@ void main() {
     expect(drawnPng(tester), 'icon-dark.png');
   });
 
-  testWidgets('Clear draws its PNG over a backdrop blur; Tinted its PNG', (
-    tester,
-  ) async {
+  testWidgets('Clear has no baked body: glass region plus the foreground layers; '
+      'Tinted draws its PNG', (tester) async {
     await show(tester, 'mail', appearance: IconAppearance.clear);
-    expect(drawnPng(tester), 'icon-clear.png');
-    expect(find.byType(BackdropFilter), findsOneWidget);
+    // The `rendered` PNG carries a translucent body: never used. The body is the compositor's.
+    expect(drawnPng(tester), isNull);
+    expect(find.byType(BackdropFilter), findsNothing);
+    expect(find.byType(Glass), findsOneWidget);
 
     await show(tester, 'mail', appearance: IconAppearance.clearDark);
-    expect(drawnPng(tester), 'icon-clear-dark.png');
+    expect(drawnPng(tester), isNull);
+    expect(find.byType(Glass), findsOneWidget);
 
     await show(tester, 'mail', appearance: IconAppearance.tinted);
     expect(drawnPng(tester), 'icon-tinted.png');
@@ -215,7 +217,9 @@ void main() {
 
       await show(tester, 'old', appearance: IconAppearance.clear);
       expect(drawnPng(tester), isNull);
-      expect(find.byType(BackdropFilter), findsOneWidget);
+      expect(find.byType(Glass), findsOneWidget);
+      // The generated background is the glass: only the two foreground SVGs remain.
+      expect(find.byType(SvgPicture), findsNWidgets(2));
     },
   );
 
@@ -232,7 +236,7 @@ void main() {
 
     // Clear: the hands follow the grey foreground.
     await show(tester, 'clock', side: 64, appearance: IconAppearance.clear);
-    expect(drawnPng(tester), 'icon-clear.png');
+    expect(drawnPng(tester), isNull);
     expect(
       find.ancestor(
         of: find.byType(SvgPicture).first,
