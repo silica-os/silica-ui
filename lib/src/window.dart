@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'appearance.dart';
+import 'double_tap.dart';
 import 'toolbar.dart' show ToolbarGlassMetrics;
 import 'windows.dart' show SilicaWindows;
 
@@ -288,7 +289,7 @@ class WindowDragThrough extends SingleChildRenderObjectWidget {
 class _RenderDragThrough extends RenderProxyBox {}
 
 /// A double tap that ignores the presses that fall on a control.
-class _EmptyAreaDoubleTap extends DoubleTapGestureRecognizer {
+class _EmptyAreaDoubleTap extends SilicaDoubleTapRecognizer {
   _EmptyAreaDoubleTap(this.isControl);
   bool Function(PointerDownEvent event) isControl;
 

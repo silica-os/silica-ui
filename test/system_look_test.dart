@@ -308,4 +308,99 @@ void main() {
     );
     expect(find.byType(SilicaIcon), findsOneWidget);
   });
+
+  testWidgets('Tab reaches the controls only with keyboard navigation', (
+    tester,
+  ) async {
+    var pressed = 0;
+    await tester.pumpWidget(
+      scoped(
+        Shortcuts(
+          shortcuts: WidgetsApp.defaultShortcuts,
+          child: Actions(
+            actions: WidgetsApp.defaultActions,
+            child: Focus(
+              autofocus: true,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: AmalfiPushButton(
+                  label: 'One',
+                  onPressed: () => pressed++,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(pressed, 0, reason: 'skipped by Tab');
+    SilicaSystemLook.apply(const SystemLook(keyboardNavigation: true));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(pressed, 1);
+    expect(
+      SystemLook.fromState(const {
+        'look.keyboardNavigation': true,
+      }).keyboardNavigation,
+      isTrue,
+    );
+  });
+
+  testWidgets('the double click time is the one chosen in Settings', (
+    tester,
+  ) async {
+    var doubles = 0;
+    await tester.pumpWidget(
+      scoped(
+        Align(
+          alignment: Alignment.topLeft,
+          child: SilicaDoubleTap(
+            onDoubleTap: () => doubles++,
+            behavior: HitTestBehavior.opaque,
+            child: const SizedBox(width: 100, height: 100),
+          ),
+        ),
+      ),
+    );
+    var clock = Duration.zero;
+    var pointer = 0;
+    Future<void> click(Duration after) async {
+      clock += after;
+      pointer++;
+      await tester.sendEventToBinding(
+        PointerDownEvent(
+          pointer: pointer,
+          position: const Offset(50, 50),
+          timeStamp: clock,
+        ),
+      );
+      await tester.sendEventToBinding(
+        PointerUpEvent(
+          pointer: pointer,
+          position: const Offset(50, 50),
+          timeStamp: clock + const Duration(milliseconds: 40),
+        ),
+      );
+    }
+
+    await click(Duration.zero);
+    await click(const Duration(milliseconds: 200));
+    expect(doubles, 1, reason: '200 ms is within the default 300');
+    await click(const Duration(seconds: 2));
+    await click(const Duration(milliseconds: 450));
+    expect(doubles, 1, reason: '450 ms is too slow for 300');
+    await click(const Duration(seconds: 2));
+    SilicaSystemLook.apply(const SystemLook(doubleClickMs: 600));
+    await click(const Duration(milliseconds: 450));
+    expect(doubles, 2, reason: '450 ms is fine for 600');
+    expect(
+      SystemLook.fromState(const {'look.doubleClickMs': 5000}).doubleClickMs,
+      1000,
+    );
+  });
 }

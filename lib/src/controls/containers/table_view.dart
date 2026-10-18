@@ -14,6 +14,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../double_tap.dart';
 import 'common.dart';
 
 abstract final class TableMetrics {
@@ -785,7 +786,7 @@ class _TableViewState<T> extends State<TableView<T>> {
           _focus.requestFocus();
           _click(i);
         },
-        child: GestureDetector(
+        child: SilicaDoubleTap(
           behavior: HitTestBehavior.opaque,
           onDoubleTap: widget.onActivate == null
               ? null
