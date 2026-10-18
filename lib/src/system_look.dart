@@ -95,6 +95,7 @@ class SystemLook {
     this.doubleClickMs = 300,
     this.reduceTransparency = false,
     this.reduceMotion = false,
+    this.increaseContrast = false,
   });
 
   /// The accent of the controls.
@@ -130,6 +131,9 @@ class SystemLook {
   /// Animations are skipped: [MediaQuery.disableAnimations] is true under the scope.
   final bool reduceMotion;
 
+  /// The high-contrast palette (Settings › Accessibility › Display › Increase Contrast).
+  final bool increaseContrast;
+
   /// The look from the daemon's `State()` dictionary (`look.*` keys); a missing or odd value is
   /// the default.
   static SystemLook fromState(Map<Object?, Object?> state) {
@@ -150,6 +154,7 @@ class SystemLook {
       keyboardNavigation: get('keyboardNavigation') == true,
       reduceTransparency: get('reduceTransparency') == true,
       reduceMotion: get('reduceMotion') == true,
+      increaseContrast: get('increaseContrast') == true,
       doubleClickMs: switch (get('doubleClickMs')) {
         final num n when n.isFinite => n.round().clamp(150, 1000),
         _ => 300,
@@ -186,7 +191,8 @@ class SystemLook {
       other.keyboardNavigation == keyboardNavigation &&
       other.doubleClickMs == doubleClickMs &&
       other.reduceTransparency == reduceTransparency &&
-      other.reduceMotion == reduceMotion;
+      other.reduceMotion == reduceMotion &&
+      other.increaseContrast == increaseContrast;
 
   @override
   int get hashCode => Object.hash(
@@ -203,6 +209,7 @@ class SystemLook {
     doubleClickMs,
     reduceTransparency,
     reduceMotion,
+    increaseContrast,
   );
 
   @override

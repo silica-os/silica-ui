@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../appearance.dart' show SilicaAppearance;
 import '../system_look.dart';
+import 'contrast.dart';
 import 'token_types.dart';
 import 'tokens.g.dart';
 
@@ -16,15 +17,24 @@ class AmalfiThemeData {
     this.app,
     this.accent,
     this.highlight,
+    this.increaseContrast = false,
   });
 
   /// The light appearance, with the palette of [app] if given.
-  const AmalfiThemeData.light({this.app, this.accent, this.highlight})
-    : brightness = Brightness.light;
+  const AmalfiThemeData.light({
+    this.app,
+    this.accent,
+    this.highlight,
+    this.increaseContrast = false,
+  }) : brightness = Brightness.light;
 
   /// The dark appearance, with the palette of [app] if given.
-  const AmalfiThemeData.dark({this.app, this.accent, this.highlight})
-    : brightness = Brightness.dark;
+  const AmalfiThemeData.dark({
+    this.app,
+    this.accent,
+    this.highlight,
+    this.increaseContrast = false,
+  }) : brightness = Brightness.dark;
 
   /// The appearance.
   final Brightness brightness;
@@ -38,6 +48,9 @@ class AmalfiThemeData {
   /// The text highlight colour chosen in the system settings; null: the accent's soft tone.
   final Color? highlight;
 
+  /// The high-contrast palette (Settings › Accessibility › Display › Increase Contrast).
+  final bool increaseContrast;
+
   /// Whether this is the dark appearance.
   bool get isDark => brightness == Brightness.dark;
 
@@ -46,12 +59,14 @@ class AmalfiThemeData {
   AmalfiColors get colors {
     final base = AmalfiColors.of(brightness);
     final accent = this.accent;
-    if (accent == null) return base;
-    return base.withAccent(
-      accent,
-      Color.lerp(accent, const Color(0xFF000000), 0.2)!,
-      accent.withAlpha(isDark ? 0x38 : 0x24),
-    );
+    final chosen = accent == null
+        ? base
+        : base.withAccent(
+            accent,
+            Color.lerp(accent, const Color(0xFF000000), 0.2)!,
+            accent.withAlpha(isDark ? 0x38 : 0x24),
+          );
+    return increaseContrast ? increaseContrastOf(chosen) : chosen;
   }
 
   /// The background of selected text: the highlight colour, otherwise the accent's soft tone.
@@ -80,11 +95,13 @@ class AmalfiThemeData {
     String? app,
     Color? accent,
     Color? highlight,
+    bool? increaseContrast,
   }) => AmalfiThemeData(
     brightness: brightness ?? this.brightness,
     app: app ?? this.app,
     accent: accent ?? this.accent,
     highlight: highlight ?? this.highlight,
+    increaseContrast: increaseContrast ?? this.increaseContrast,
   );
 
   @override
@@ -93,10 +110,12 @@ class AmalfiThemeData {
       other.brightness == brightness &&
       other.app == app &&
       other.accent == accent &&
-      other.highlight == highlight;
+      other.highlight == highlight &&
+      other.increaseContrast == increaseContrast;
 
   @override
-  int get hashCode => Object.hash(brightness, app, accent, highlight);
+  int get hashCode =>
+      Object.hash(brightness, app, accent, highlight, increaseContrast);
 
   @override
   String toString() => 'AmalfiThemeData($brightness, app: $app)';
@@ -153,6 +172,7 @@ class AmalfiTheme extends StatelessWidget {
       highlight: look.highlight == null
           ? null
           : SystemLook.amalfiColor(look.highlight!, dark: dark),
+      increaseContrast: look.increaseContrast,
     );
   }
 

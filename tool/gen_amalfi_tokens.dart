@@ -652,6 +652,25 @@ class _Colors {
     o.writeln();
     _doc(
       o,
+      'These colours with every system colour (not the apps\' palettes) passed through '
+      '[transform], which gets the token\'s field name (`textSecondary`) and its colour: the '
+      'variants of the palette (Increase Contrast) are made with it.',
+    );
+    o.writeln(
+      '  AmalfiColors mapSystem(Color Function(String field, Color color) transform) =>',
+    );
+    o.writeln('      AmalfiColors._(');
+    o.writeln('        brightness: brightness,');
+    for (final id in system.values) {
+      o.writeln("        $id: transform('$id', $id),");
+    }
+    for (final app in appList) {
+      o.writeln('        ${app.field}: ${app.field},');
+    }
+    o.writeln('      );');
+    o.writeln();
+    _doc(
+      o,
       'Every colour token name, apps included, in the order of `tokens.json`.',
     );
     o.writeln('  static const List<String> tokenNames = [');
