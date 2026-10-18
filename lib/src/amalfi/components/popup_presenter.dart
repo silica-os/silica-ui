@@ -216,14 +216,20 @@ class _RenderFollowSize extends RenderProxyBox {
       size = constraints.smallest;
       return;
     }
+    // Its natural size first, then laid out again with that size as the most it can take: the
+    // room left by the display (unknown in the embedder: infinite) never reaches what is drawn
+    // (the glass places a popover's arrow from its constraints), and the constraints stay
+    // loose, so a change of the content's size still comes up here.
     child.layout(
       BoxConstraints(maxWidth: _maxSize.width, maxHeight: _maxSize.height),
       parentUsesSize: true,
     );
-    size = constraints.constrain(child.size);
+    final natural = child.size;
+    child.layout(BoxConstraints.loose(natural), parentUsesSize: true);
+    size = constraints.constrain(natural);
     final wanted = Size(
-      child.size.width.ceilToDouble(),
-      child.size.height.ceilToDouble(),
+      natural.width.ceilToDouble(),
+      natural.height.ceilToDouble(),
     );
     if (wanted != _reported && !wanted.isEmpty) {
       _reported = wanted;

@@ -217,6 +217,19 @@ void main() {
     // It went above: the arrow is on its bottom edge, at the anchor's centre (320 − 280).
     expect(popover.arrowEdge, AmalfiPopoverArrowEdge.bottom);
     expect(popover.arrowOffset, 40);
+    // The compositor draws the arrow where the glass says: at the anchor too, although the
+    // popover is laid out at its own size in the popup (silica-desktop#238).
+    final glass = tester.widget<Glass>(find.byType(Glass));
+    expect(glass.tip?.x, 40);
+    // At most its own size, whatever room the display leaves (unknown in the embedder): the
+    // glass places the arrow from its constraints.
+    expect(
+      tester
+          .renderObject<RenderBox>(find.byType(AmalfiPopover))
+          .constraints
+          .biggest,
+      tester.getSize(find.byType(AmalfiPopover)),
+    );
 
     // Esc closes it.
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
