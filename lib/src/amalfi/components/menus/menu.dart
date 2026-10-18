@@ -15,6 +15,7 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../../menu_service.dart';
 import '../../../popups.dart';
 import '../../glass.dart';
 import '../../theme.dart';
@@ -40,6 +41,7 @@ class AmalfiMenuAction extends AmalfiMenuEntry {
     this.onSelected,
     this.submenu,
     this.submenuWidth,
+    this.iconName,
   });
 
   /// The text.
@@ -50,6 +52,10 @@ class AmalfiMenuAction extends AmalfiMenuEntry {
 
   /// A 16 pt icon before the label, coloured through [IconTheme]; null: none.
   final Widget? icon;
+
+  /// The icon for the system menu service: a symbol name or the absolute path of an image
+  /// file. The widget [icon] draws in-process only (a widget cannot cross to the shell).
+  final String? iconName;
 
   /// Whether the checkmark shows.
   final bool checked;
@@ -835,10 +841,10 @@ class _SubmenuLayout extends SingleChildLayoutDelegate {
 /// It fades in and out with [AmalfiFades.instant] (`motion.md`: no scale) and takes the
 /// keyboard focus. [width], [minWidth] and [opaque] are as in [AmalfiMenu].
 ///
-/// Where Silica offers it (an app started with `--multi-window`, [SilicaPopups]) the menu is a
-/// surface of its own, an `xdg_popup` of the window: it can extend past the window's edge,
-/// Ossido keeps it on the output (it slides back) and closes it with a press outside, and its
-/// glass blurs what is under it, the window included. Elsewhere it is drawn in the window,
+/// Under Silica the menu is the system's ([SilicaMenuService], silica-desktop#241): the shell
+/// draws it, Ossido places it on the output and closes it on a press outside or any change of
+/// context. A widget [AmalfiMenuAction.icon] cannot cross to the shell: give the action an
+/// [AmalfiMenuAction.iconName]. Elsewhere (tests, another compositor) it is drawn in the window,
 /// inside the overlay, as described above.
 Future<void> showAmalfiMenu({
   required BuildContext context,
@@ -847,36 +853,22 @@ Future<void> showAmalfiMenu({
   double? width,
   double minWidth = AmalfiMenuMetrics.minWidth,
   bool opaque = false,
-}) {
-  if (SilicaPopups.available == true) {
-    return showAmalfiAsPopup(
-      context: context,
-      // The menu's top-left corner on the position.
-      anchor: position & const Size(1, 1),
-      anchorEdge: SilicaPopupEdge.topLeft,
-      gravity: SilicaPopupEdge.bottomRight,
-      builder: (context, dismiss, placement) => AmalfiMenu(
-        entries: entries,
-        width: width,
-        minWidth: minWidth,
-        opaque: opaque,
-        autofocus: true,
-        onDismiss: dismiss,
-      ),
-    ).then(
-      (popup) => popup == null
-          ? _showMenuInWindow(
-              context: context,
-              position: position,
-              entries: entries,
-              width: width,
-              minWidth: minWidth,
-              opaque: opaque,
-            )
-          : popup.closed,
+}) async {
+  final view = View.maybeOf(context);
+  if (SilicaMenuService.available == true && view != null) {
+    final handle = await SilicaMenuService.show(
+      viewId: view.viewId,
+      menu: ServiceMenu.from(entries),
+      // A 0 x 0 rectangle: the pointer.
+      anchor: position & Size.zero,
     );
+    if (handle != null) {
+      await handle.result;
+      return;
+    }
+  } else if (SilicaMenuService.available == null) {
+    unawaited(SilicaMenuService.probe());
   }
-  if (SilicaPopups.available == null) unawaited(SilicaPopups.probe());
   return _showMenuInWindow(
     context: context,
     position: position,

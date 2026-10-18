@@ -20,6 +20,7 @@ import 'package:flutter/widgets.dart';
 
 import 'appearance.dart';
 import 'window.dart' show SilicaWindow;
+import 'menu_service.dart' show SilicaMenuService;
 import 'popups.dart' show SilicaPopups;
 import 'windows.dart' show SilicaWindows;
 
@@ -216,6 +217,7 @@ class _SilicaAppWindowState extends State<SilicaAppWindow> {
     SilicaApp.onReopen = _reopen;
     // Whether menus and popovers can be surfaces of their own (silica-desktop#4).
     unawaited(SilicaPopups.probe());
+    unawaited(SilicaMenuService.probe());
   }
 
   @override

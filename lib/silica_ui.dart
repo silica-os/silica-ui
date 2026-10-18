@@ -35,6 +35,8 @@ export 'src/icons/silica_icons.dart';
 export 'src/liquid_glass.dart';
 export 'src/menu.dart';
 export 'src/menu_bar.dart';
+export 'src/menu_service.dart'
+    show ServiceMenu, ServiceMenuHandle, SilicaMenuService;
 export 'src/tip_outline.dart';
 export 'src/toolbar.dart';
 export 'src/amalfi/components/popup_presenter.dart' show showAmalfiAsPopup;

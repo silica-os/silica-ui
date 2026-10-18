@@ -6,13 +6,12 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import '../../../popups.dart';
+import '../../../menu_service.dart';
 import '../../foundation/foundation.dart';
 import '../../smooth_border.dart';
 import '../../theme.dart';
 import '../../tokens.g.dart';
 import '../menus/menu.dart';
-import '../popup_presenter.dart';
 import 'button_base.dart';
 import 'button_surface.dart';
 
@@ -261,35 +260,35 @@ class _MenuButtonState extends State<_MenuButton>
     curve: AmalfiFades.instant.curve,
   );
 
-  /// The menu as a popup of its own, while it is being measured and while it is open
-  /// (silica-desktop#4); the portal above is the menu drawn in the window.
-  SilicaPopupController? _popup;
+  /// The menu while the system's menu service shows it (silica-desktop#241); the portal
+  /// above is the menu drawn in the window, outside Silica.
+  ServiceMenuHandle? _service;
   bool _opening = false;
 
   bool get _open =>
       _opening ||
-      _popup != null ||
+      _service != null ||
       (_portal.isShowing && _fade.status != AnimationStatus.reverse);
 
   @override
   void didUpdateWidget(_MenuButton old) {
     super.didUpdateWidget(old);
     if (!widget.enabled && _portal.isShowing) _closeNow();
-    if (!widget.enabled) unawaited(_popup?.close());
+    if (!widget.enabled) unawaited(_service?.cancel());
   }
 
   @override
   void dispose() {
-    unawaited(_popup?.close());
+    unawaited(_service?.cancel());
     _fade.dispose();
     _menuFocus.dispose();
     super.dispose();
   }
 
   void _toggle() {
-    final popup = _popup;
-    if (popup != null) {
-      unawaited(popup.close());
+    final service = _service;
+    if (service != null) {
+      unawaited(service.cancel());
     } else if (_open) {
       _close();
     } else {
@@ -297,65 +296,49 @@ class _MenuButtonState extends State<_MenuButton>
     }
   }
 
-  /// Opens the menu as a popup hanging from the button, 4 below it (above when there is no
-  /// room), its leading edge on the button's; false if the system has no popups.
-  Future<bool> _showPopup() async {
+  /// Asks the system to show the menu: a pop-up button's with the chosen row over the button,
+  /// a pull-down's below it. False if the system does not offer the service.
+  Future<bool> _showService() async {
     final box = context.findRenderObject();
-    if (SilicaPopups.available != true || box is! RenderBox || !box.hasSize) {
-      if (SilicaPopups.available == null) unawaited(SilicaPopups.probe());
+    final view = View.maybeOf(context);
+    if (SilicaMenuService.available != true ||
+        box is! RenderBox ||
+        !box.hasSize ||
+        view == null) {
+      if (SilicaMenuService.available == null) {
+        unawaited(SilicaMenuService.probe());
+      }
       return false;
     }
     final rect = box.localToGlobal(Offset.zero) & box.size;
-    const d = AmalfiPopUpButtonMetrics.menuDistance;
-    final minWidth = rect.width > AmalfiPopUpButtonMetrics.menuMinWidth
-        ? rect.width
-        : AmalfiPopUpButtonMetrics.menuMinWidth;
-    final rtl =
-        (Directionality.maybeOf(context) ?? TextDirection.ltr) ==
-        TextDirection.rtl;
+    final menu = ServiceMenu.from(
+      widget.entries,
+      selectedIndex: widget.highlighted < 0 ? null : widget.highlighted,
+    );
     setState(() => _opening = true);
-    final popup = await showAmalfiAsPopup(
-      context: context,
-      // The button with the distance on both sides: the menu hangs from its bottom edge, and
-      // from its top edge when it flips above.
-      anchor: Rect.fromLTRB(
-        rect.left,
-        rect.top - d,
-        rect.right,
-        rect.bottom + d,
-      ),
-      anchorEdge: rtl
-          ? SilicaPopupEdge.bottomRight
-          : SilicaPopupEdge.bottomLeft,
-      gravity: rtl ? SilicaPopupEdge.bottomLeft : SilicaPopupEdge.bottomRight,
-      adjust: const {
-        SilicaPopupAdjust.flipY,
-        SilicaPopupAdjust.slideX,
-        SilicaPopupAdjust.slideY,
-      },
-      builder: (context, dismiss, placement) => AmalfiMenu(
-        entries: widget.entries,
-        initialHighlight: widget.highlighted < 0 ? null : widget.highlighted,
-        minWidth: minWidth,
-        onDismiss: dismiss,
-        autofocus: true,
-      ),
+    final handle = await SilicaMenuService.show(
+      viewId: view.viewId,
+      menu: menu,
+      anchor: rect,
+      popUp: menu.selectedId != 0,
     );
     if (!mounted) {
-      unawaited(popup?.close());
+      unawaited(handle?.cancel());
       return true;
     }
-    if (popup == null) {
+    if (handle == null) {
       setState(() => _opening = false);
       return false;
     }
     setState(() {
       _opening = false;
-      _popup = popup;
+      _service = handle;
     });
     unawaited(
-      popup.closed.whenComplete(() {
-        if (mounted && identical(_popup, popup)) setState(() => _popup = null);
+      handle.result.whenComplete(() {
+        if (mounted && identical(_service, handle)) {
+          setState(() => _service = null);
+        }
       }),
     );
     return true;
@@ -363,15 +346,17 @@ class _MenuButtonState extends State<_MenuButton>
 
   void _show() {
     if (!widget.enabled || _opening) return;
-    if (SilicaPopups.available == true) {
+    if (SilicaMenuService.available == true) {
       unawaited(
-        _showPopup().then((shown) {
+        _showService().then((shown) {
           if (!shown && mounted) _showInWindow();
         }),
       );
       return;
     }
-    if (SilicaPopups.available == null) unawaited(SilicaPopups.probe());
+    if (SilicaMenuService.available == null) {
+      unawaited(SilicaMenuService.probe());
+    }
     _showInWindow();
   }
 
