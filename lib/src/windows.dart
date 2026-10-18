@@ -282,13 +282,24 @@ abstract final class SilicaWindows {
 /// Builds the app's other windows next to [child], each in its own `View`: they inherit
 /// what is above the host (localizations, theme, the app's models). Put it once around the
 /// app's content, above `SilicaAppWindow` (the other windows outlive the main one).
+/// `SilicaAppWindow` and `SilicaMenuBar` have one too, so that every app can open the
+/// standard windows (About, silica-ui#99): under another host a host only passes its child
+/// through, so the windows are built once, by the outermost.
 class SilicaWindowHost extends StatelessWidget {
   const SilicaWindowHost({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) =>
+  Widget build(BuildContext context) {
+    if (context.getInheritedWidgetOfExactType<_SilicaWindowHostScope>() !=
+        null) {
+      return child;
+    }
+    return _SilicaWindowHostScope(child: _windows(child));
+  }
+
+  static Widget _windows(Widget child) =>
       ValueListenableBuilder<List<SilicaWindowController>>(
         valueListenable: SilicaWindows.open,
         builder: (context, windows, child) => ViewAnchor(
@@ -308,4 +319,12 @@ class SilicaWindowHost extends StatelessWidget {
         ),
         child: child,
       );
+}
+
+/// Marks the outermost [SilicaWindowHost].
+class _SilicaWindowHostScope extends InheritedWidget {
+  const _SilicaWindowHostScope({required super.child});
+
+  @override
+  bool updateShouldNotify(_SilicaWindowHostScope oldWidget) => false;
 }

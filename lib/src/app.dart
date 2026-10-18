@@ -23,7 +23,7 @@ import 'appearance.dart';
 import 'window.dart' show SilicaWindow;
 import 'menu_service.dart' show SilicaMenuService;
 import 'popups.dart' show SilicaPopups;
-import 'windows.dart' show SilicaWindows;
+import 'windows.dart' show SilicaWindowHost, SilicaWindows;
 
 /// The app's lifecycle in Silica.
 abstract final class SilicaApp {
@@ -364,15 +364,17 @@ class _SilicaAppWindowState extends State<SilicaAppWindow> {
 
   @override
   Widget build(BuildContext context) {
-    if (_open) {
-      return KeyedSubtree(
-        key: ValueKey(_generation),
-        child: Builder(builder: widget.builder),
-      );
-    }
     final windowless = widget.windowlessBuilder;
-    return windowless == null
-        ? const SizedBox.shrink()
-        : Builder(builder: (context) => windowless(context, _openDocument));
+    // The other windows (About, Get Info) outlive the main one: their host is here, above it.
+    return SilicaWindowHost(
+      child: _open
+          ? KeyedSubtree(
+              key: ValueKey(_generation),
+              child: Builder(builder: widget.builder),
+            )
+          : windowless == null
+          ? const SizedBox.shrink()
+          : Builder(builder: (context) => windowless(context, _openDocument)),
+    );
   }
 }

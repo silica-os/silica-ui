@@ -804,11 +804,14 @@ class _SilicaMenuBarState extends State<SilicaMenuBar> {
   @override
   Widget build(BuildContext context) => PlatformMenuBar(
     menus: widget.menus,
-    child: widget.shortcuts
-        ? CallbackShortcuts(
-            bindings: silicaMenuShortcuts(widget.menus),
-            child: widget.child,
-          )
-        : widget.child,
+    // The windows the menus open (About <App>) need a host, also in apps that have none.
+    child: SilicaWindowHost(
+      child: widget.shortcuts
+          ? CallbackShortcuts(
+              bindings: silicaMenuShortcuts(widget.menus),
+              child: widget.child,
+            )
+          : widget.child,
+    ),
   );
 }

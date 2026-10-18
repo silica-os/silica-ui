@@ -263,4 +263,19 @@ void main() {
     await SilicaWindows.closeAll();
     expect(appCalls, ['closeWindow']);
   });
+
+  testWidgets(
+    'a host under another host passes its child through (one host builds)',
+    (tester) async {
+      await tester.pumpWidget(
+        const SilicaWindowHost(
+          child: SilicaWindowHost(child: SilicaWindowHost(child: SizedBox())),
+        ),
+      );
+      expect(
+        find.byType(ValueListenableBuilder<List<SilicaWindowController>>),
+        findsOneWidget,
+      );
+    },
+  );
 }
