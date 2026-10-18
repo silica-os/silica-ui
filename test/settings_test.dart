@@ -43,6 +43,23 @@ void main() {
     },
   );
 
+  test('getters and watch read without listening', () async {
+    final backend = MemorySettingsBackend({'a': true, 'b': 5, 'c': 'x'});
+    final settings = SilicaSettings(backend: backend);
+    addTearDown(settings.dispose);
+    await settings.refresh();
+    var fired = 0;
+    settings.watch(["a", "b"]).addListener(() => fired++);
+    expect(settings.getBool('a', fallback: false), isTrue);
+    expect(settings.getInt('b', fallback: 0), 5);
+    expect(settings.getText('c', fallback: ''), 'x');
+    expect(settings.getEnum('c', _Pos.values, fallback: _Pos.left), _Pos.left);
+    backend.emit('b', 6);
+    backend.emit('c', 'y');
+    expect(fired, 1);
+    expect(settings.getInt('b', fallback: 0), 6);
+  });
+
   test('lists, numbers and texts', () async {
     final backend = MemorySettingsBackend({
       'controlcenter.modules': ['wifi:large', 3, 'dnd:small'],

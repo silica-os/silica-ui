@@ -268,6 +268,60 @@ class SilicaSettings {
         : const [],
   );
 
+  /// A listenable that fires when any of [keys] changes.
+  Listenable watch(Iterable<String> keys) => Listenable.merge([
+    for (final key in keys)
+      _notifiers.putIfAbsent(key, () => ValueNotifier<Object?>(_raw[key])),
+  ]);
+
+  /// The current value of a key, without listening (for code that already listens to
+  /// [watch]).
+  bool getBool(String key, {required bool fallback}) {
+    final v = _raw[key];
+    return v is bool ? v : fallback;
+  }
+
+  int getInt(String key, {required int fallback}) {
+    final v = _raw[key];
+    return v is num && v.isFinite ? v.round() : fallback;
+  }
+
+  double getNumber(String key, {required double fallback}) {
+    final v = _raw[key];
+    return v is num && v.isFinite ? v.toDouble() : fallback;
+  }
+
+  String getText(String key, {required String fallback}) {
+    final v = _raw[key];
+    return v is String ? v : fallback;
+  }
+
+  E getEnum<E extends Enum>(
+    String key,
+    List<E> values, {
+    required E fallback,
+  }) => values.where((e) => e.name == _raw[key]).firstOrNull ?? fallback;
+
+  List<String> getTexts(String key) {
+    final v = _raw[key];
+    return v is List
+        ? [
+            for (final e in v)
+              if (e is String) e,
+          ]
+        : const [];
+  }
+
+  List<double> getNumbers(String key) {
+    final v = _raw[key];
+    return v is List
+        ? [
+            for (final e in v)
+              if (e is num) e.toDouble(),
+          ]
+        : const [];
+  }
+
   /// Sets [key] to [value] (`bool`, `int`, `double`, `String`, `List<String>` or
   /// `List<double>`; an enum by its name). Shown at once; sent to the daemon. Returns false
   /// when the daemon refused it (the values are then read again).
