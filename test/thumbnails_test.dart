@@ -166,6 +166,71 @@ void main() {
     },
   );
 
+  test(
+    'Icon flags carry the icon style and the accent after the no-preview bit',
+    () {
+      int flags(IconAppearance look, {Color? accent, bool noPreview = false}) =>
+          SilicaThumbnails.iconFlags(
+            look: look,
+            accent: accent,
+            noPreview: noPreview,
+          );
+      expect(flags(IconAppearance.light), 0);
+      expect(flags(IconAppearance.light, noPreview: true), 1);
+      expect(flags(IconAppearance.dark), 4 << 1);
+      expect(flags(IconAppearance.clearDark, noPreview: true), 1 | (5 << 1));
+      expect(
+        flags(IconAppearance.tinted, accent: const Color(0xFFD6336C)),
+        (2 << 1) | (0xD6336C << 8),
+      );
+      // The accent only goes with the tinted styles.
+      expect(
+        flags(IconAppearance.clear, accent: const Color(0xFFD6336C)),
+        1 << 1,
+      );
+    },
+  );
+
+  testWidgets('a folder icon asks for the system icon style and its accent', (
+    tester,
+  ) async {
+    final calls = <List>[];
+    messenger.setMockMethodCallHandler(SilicaThumbnails.channel, (call) async {
+      calls.add((call.arguments as Map)['args'] as List);
+      return ['', false];
+    });
+    addTearDown(SilicaSystemLook.reset);
+    Future<void> pump(SystemIconStyle style) async {
+      SilicaSystemLook.apply(SystemLook(iconStyle: style));
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(
+            data: const MediaQueryData(),
+            child: SystemLookScope(
+              child: SilicaFileIcon(
+                file: Uri.file('/home/a/Docs'),
+                size: 64,
+                isFolder: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    await pump(SystemIconStyle.standard);
+    expect(calls.last[3], 0);
+    await pump(SystemIconStyle.dark);
+    expect(calls.last[3], 4 << 1);
+    await pump(SystemIconStyle.clear);
+    expect(calls.last[3], 1 << 1);
+    await pump(SystemIconStyle.tinted);
+    expect((calls.last[3] as int) & 14, 2 << 1);
+    expect((calls.last[3] as int) >> 8, isNot(0));
+  });
+
   testWidgets('SilicaFileIcon: plain layers until the PNG, then the PNG', (
     tester,
   ) async {
