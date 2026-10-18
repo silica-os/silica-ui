@@ -85,13 +85,11 @@ class IconShadow {
 const List<Color> neutralLight = [Color(0xFFFFFFFF), Color(0xFFEDEDF0)];
 const List<Color> neutralDark = [Color(0xFF3A3A3C), Color(0xFF161618)];
 
-/// The radius of the circular-arc glass region behind a Clear icon, per side of the body. The
-/// protocol's regions have circular corners; the body (`tools/body.svg`: radius 214 on 824,
-/// smoothing 0.6) is a continuous curve whose corner reaches further along the edge. 0.30 keeps
-/// the region inside the body's outline everywhere (214/824 = 0.26 would poke out at the
-/// diagonals) and within about a point of it at 60 pt (silica-desktop#232: picked, no measured
-/// value).
-const double clearGlassRadiusRatio = 0.30;
+/// The glass region behind a Clear icon has the body's shape: radius 214/824 of the side with
+/// the continuous corner of smoothing 0.6 (`tools/body.svg`; silica-glass-v1 version 9,
+/// `add_continuous_region`). A compositor without it draws the circle that stands for it.
+const double clearGlassRadiusRatio = 214 / 824;
+const double clearGlassSmoothing = 0.6;
 
 /// The glass of a Clear icon: the compositor's blur behind the body, declared as a region of the
 /// body's shape. The closest documented profile for a small piece of glass on a surface is
@@ -900,8 +898,8 @@ class _DropPainter extends CustomPainter {
       old.body != body || old.outsideOnly != outsideOnly;
 }
 
-/// The glass behind a Clear icon: a region with the body's shape (a circular arc of
-/// [clearGlassRadiusRatio]) of the profile for small glass pieces. The compositor draws the blur
+/// The glass behind a Clear icon: a region with the body's shape (radius
+/// [clearGlassRadiusRatio], smoothing [clearGlassSmoothing]) of the profile for small glass pieces. The compositor draws the blur
 /// there; this draws nothing, and the icon's foreground goes on top.
 class _ClearGlass extends StatelessWidget {
   const _ClearGlass({required this.body, required this.side});
@@ -916,6 +914,7 @@ class _ClearGlass extends StatelessWidget {
       child: IgnorePointer(
         child: Glass(
           radius: side * clearGlassRadiusRatio,
+          smoothing: clearGlassSmoothing,
           material: clearGlassMaterial,
           profile: clearGlassProfile,
           group: clearGlassGroup,

@@ -181,7 +181,14 @@ void main() {
     expect(glass.profile, GlassProfile.control);
     expect(glass.profileShadow, isFalse);
     expect(glass.group, clearGlassGroup);
-    expect(glass.radius, closeTo(64 * 0.30, 1e-9));
+    expect(glass.radius, closeTo(64 * 214 / 824, 1e-9));
+    // The body's continuous corner, not a circular arc.
+    expect(glass.smoothing, 0.6);
+    // ... and that is what the compositor is told.
+    final region = GlassRegistry.instance.regions.single;
+    expect(region['smoothing'], 0.6);
+    expect(region['radius'], closeTo(64 * 214 / 824, 1e-9));
+    expect(region['profile'], 'control');
     // The region is the body's rectangle.
     expect(tester.getSize(find.byType(Glass)), const Size(64, 64));
     // Hour and second hands (the canvas is above 64 pt): the cap does not rotate.
