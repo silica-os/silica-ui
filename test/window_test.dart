@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -127,12 +125,10 @@ void main() {
   testWidgets('a double click on the empty bar zooms or minimizes as chosen', (
     tester,
   ) async {
-    final dir = Directory.systemTemp.createTempSync('silica-dblclick');
-    addTearDown(() {
-      SilicaWindow.debugEnvironment = null;
-      dir.deleteSync(recursive: true);
-    });
-    SilicaWindow.debugEnvironment = {'HOME': dir.path};
+    // The Settings service's key (silica-desktop#240), here in memory.
+    final backend = MemorySettingsBackend({});
+    SilicaSettings.useBackend(backend);
+    addTearDown(() => SilicaSettings.useBackend(MemorySettingsBackend({})));
     Future<void> doubleTap() async {
       await tester.tapAt(const Offset(20, 26));
       await tester.pump(const Duration(milliseconds: 50));
@@ -151,16 +147,11 @@ void main() {
     await doubleTap();
     expect(calls.map((c) => c.method), ['zoom']);
     calls.clear();
-    Directory('${dir.path}/.config/silica').createSync(recursive: true);
-    File(
-      '${dir.path}/.config/silica/dock.json',
-    ).writeAsStringSync('{"titleBarDoubleClick":"minimize"}');
+    backend.emit(SilicaWindow.titleBarDoubleClickKey, 'minimize');
     await doubleTap();
     expect(calls.map((c) => c.method), ['minimize']);
     calls.clear();
-    File(
-      '${dir.path}/.config/silica/dock.json',
-    ).writeAsStringSync('{"titleBarDoubleClick":"none"}');
+    backend.emit(SilicaWindow.titleBarDoubleClickKey, 'none');
     await doubleTap();
     expect(calls, isEmpty);
   });

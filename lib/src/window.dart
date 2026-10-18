@@ -10,15 +10,13 @@
 // is a 34 × 28 pill inset by 5 pt, `#e2e2e2` → `#e7e7e7`. The capsules themselves, their
 // hover highlight, the press growth and the glow are in `toolbar.dart`.
 
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'appearance.dart';
+import 'settings.dart' show SilicaSettings;
 import 'double_tap.dart';
 import 'toolbar.dart' show ToolbarGlassMetrics;
 import 'windows.dart' show SilicaWindows;
@@ -128,10 +126,6 @@ abstract final class SilicaWindow {
     }
   }
 
-  /// Tests: the environment to read the user's choice from.
-  @visibleForTesting
-  static Map<String, String>? debugEnvironment;
-
   /// Zooms the window (xdg_toplevel `set_maximized`), or puts it back when it is zoomed.
   /// True if Silica applied it.
   static Future<bool> zoom({int viewId = 0}) => _call('zoom', _view(viewId));
@@ -140,39 +134,30 @@ abstract final class SilicaWindow {
   static Future<bool> minimize({int viewId = 0}) =>
       _call('minimize', _view(viewId));
 
-  /// What a double click on the empty part of the title bar does, from the user's choice in
-  /// Settings › Desktop & Dock (`titleBarDoubleClick` in `silica/dock.json`: `zoom`, the
-  /// default, `minimize` or `none`).
-  static TitleBarDoubleClick titleBarDoubleClick({Map<String, String>? env}) {
-    final e = env ?? debugEnvironment ?? Platform.environment;
-    final home = e['HOME'] ?? '';
-    final config = e['XDG_CONFIG_HOME'] ?? '$home/.config';
-    try {
-      final json = jsonDecode(
-        File('$config/silica/dock.json').readAsStringSync(),
-      );
-      if (json is Map) {
-        return switch (json['titleBarDoubleClick']) {
-          'minimize' => TitleBarDoubleClick.minimize,
-          'none' => TitleBarDoubleClick.none,
-          _ => TitleBarDoubleClick.zoom,
-        };
-      }
-    } on FileSystemException {
-      // The default.
-    } on FormatException {
-      // Likewise.
-    }
-    return TitleBarDoubleClick.zoom;
-  }
+  /// The Settings service key of the title bar's double click (`zoom`, the default,
+  /// `minimize` or `none`), the one Ossido follows for the bars it draws (silica-desktop#240).
+  static const String titleBarDoubleClickKey = 'dock.titleBarDoubleClick';
 
-  /// Runs the user's double click action on the window.
-  static Future<bool> doubleClickTitleBar({int viewId = 0}) =>
-      switch (titleBarDoubleClick()) {
-        TitleBarDoubleClick.zoom => zoom(viewId: viewId),
-        TitleBarDoubleClick.minimize => minimize(viewId: viewId),
-        TitleBarDoubleClick.none => Future.value(false),
-      };
+  /// What a double click on the empty part of the title bar does, from the user's choice in
+  /// Settings › Desktop & Dock (the Settings service, [titleBarDoubleClickKey]).
+  static TitleBarDoubleClick titleBarDoubleClick() =>
+      SilicaSettings.instance.getEnum(
+        titleBarDoubleClickKey,
+        TitleBarDoubleClick.values,
+        fallback: TitleBarDoubleClick.zoom,
+      );
+
+  /// Runs the user's double click action on the window. The first time the setting is read
+  /// first, so the user's choice is followed from the first double click.
+  static Future<bool> doubleClickTitleBar({int viewId = 0}) async {
+    final settings = SilicaSettings.instance;
+    if (settings.raw(titleBarDoubleClickKey) == null) await settings.refresh();
+    return switch (titleBarDoubleClick()) {
+      TitleBarDoubleClick.zoom => zoom(viewId: viewId),
+      TitleBarDoubleClick.minimize => minimize(viewId: viewId),
+      TitleBarDoubleClick.none => false,
+    };
+  }
 
   /// Moves the window with the pointer pressed (from the toolbar).
   static Future<void> startMove({int viewId = 0}) async {
