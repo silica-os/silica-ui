@@ -7,6 +7,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../system_look.dart';
+
 /// Activates the focused Amalfi control (the keys in [AmalfiInteraction.activators]).
 class AmalfiActivateIntent extends Intent {
   const AmalfiActivateIntent();
@@ -142,6 +144,10 @@ class _AmalfiInteractionState extends State<AmalfiInteraction> {
   Offset _downAt = Offset.zero;
   AmalfiInteractionState? _reported;
 
+  /// The focus node when the caller gives none: Tab skips it unless keyboard navigation is on
+  /// (Settings › Keyboard › Keyboard navigation), as it skips controls on the reference.
+  FocusNode? _ownNode;
+
   bool get _enabled => widget.onActivate != null;
 
   AmalfiInteractionState get _state {
@@ -188,6 +194,7 @@ class _AmalfiInteractionState extends State<AmalfiInteraction> {
   @override
   void dispose() {
     _release();
+    _ownNode?.dispose();
     super.dispose();
   }
 
@@ -250,9 +257,14 @@ class _AmalfiInteractionState extends State<AmalfiInteraction> {
   Widget build(BuildContext context) {
     final enabled = _enabled;
     final onKey = widget.onKey;
+    var node = widget.focusNode;
+    if (node == null) {
+      node = _ownNode ??= FocusNode(debugLabel: 'AmalfiInteraction');
+      node.skipTraversal = !SystemLookScope.of(context).keyboardNavigation;
+    }
     Widget child = FocusableActionDetector(
       enabled: enabled,
-      focusNode: widget.focusNode,
+      focusNode: node,
       autofocus: widget.autofocus,
       mouseCursor: enabled ? widget.cursor : MouseCursor.defer,
       shortcuts: widget.activators,

@@ -91,6 +91,8 @@ class SystemLook {
     this.folderColour,
     this.glass = 0.5,
     this.windowTint = false,
+    this.keyboardNavigation = false,
+    this.doubleClickMs = 300,
   });
 
   /// The accent of the controls.
@@ -113,6 +115,13 @@ class SystemLook {
   /// Windows tinted with the wallpaper colour (applied by the compositor).
   final bool windowTint;
 
+  /// Tab reaches every control, not only text fields and lists (Settings › Keyboard).
+  final bool keyboardNavigation;
+
+  /// The longest time between the two clicks of a double click, in milliseconds (Settings ›
+  /// Mouse; 300 by default).
+  final int doubleClickMs;
+
   /// The look from the daemon's `State()` dictionary (`look.*` keys); a missing or odd value is
   /// the default.
   static SystemLook fromState(Map<Object?, Object?> state) {
@@ -130,6 +139,11 @@ class SystemLook {
           ? glass.toDouble().clamp(0.0, 1.0)
           : 0.5,
       windowTint: get('windowTint') == true,
+      keyboardNavigation: get('keyboardNavigation') == true,
+      doubleClickMs: switch (get('doubleClickMs')) {
+        final num n when n.isFinite => n.round().clamp(150, 1000),
+        _ => 300,
+      },
     );
   }
 
@@ -158,7 +172,9 @@ class SystemLook {
       other.iconStyle == iconStyle &&
       other.folderColour == folderColour &&
       other.glass == glass &&
-      other.windowTint == windowTint;
+      other.windowTint == windowTint &&
+      other.keyboardNavigation == keyboardNavigation &&
+      other.doubleClickMs == doubleClickMs;
 
   @override
   int get hashCode => Object.hash(
@@ -171,6 +187,8 @@ class SystemLook {
     folderColour,
     glass,
     windowTint,
+    keyboardNavigation,
+    doubleClickMs,
   );
 
   @override

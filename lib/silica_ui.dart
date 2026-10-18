@@ -15,6 +15,7 @@ export 'src/controls/buttons/buttons.dart';
 export 'src/controls/containers/containers.dart';
 export 'src/controls/control_base.dart';
 export 'src/controls/inputs/inputs.dart';
+export 'src/double_tap.dart';
 export 'src/drag.dart';
 export 'src/glass.dart';
 export 'src/glass_lens.dart';
