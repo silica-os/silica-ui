@@ -207,6 +207,38 @@ void main() {
     expect(closed, isTrue);
   });
 
+  testWidgets('a popup is closed when the content it hangs from goes', (
+    tester,
+  ) async {
+    late BuildContext context;
+    await pumpKitScene(
+      tester,
+      Builder(
+        builder: (c) {
+          context = c;
+          return const SizedBox(width: 400, height: 300);
+        },
+      ),
+    );
+    await offerPopups(tester);
+    showAmalfiMenu(
+      context: context,
+      position: const Offset(100, 100),
+      entries: simpleEntries,
+    );
+    await settle(tester);
+    expect(find.byType(AmalfiMenu), findsOneWidget);
+    expect(calls.where((call) => call.method == 'closeWindow'), isEmpty);
+
+    // The window's tree is torn down (the last window closed) with the menu still open.
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
+    expect(
+      calls.where((call) => call.method == 'closeWindow').single.arguments,
+      {'viewId': 7},
+    );
+  });
+
   testWidgets('a press outside ends the popup: the menu is gone with it', (
     tester,
   ) async {

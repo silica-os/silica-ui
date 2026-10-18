@@ -115,7 +115,8 @@ Future<SilicaPopupController?> showAmalfiAsPopup({
           ),
         ),
       ),
-      child: const SizedBox.shrink(),
+      // The window's content goes (its overlay is torn down): the popup must not outlive it.
+      child: _PopupLife(popup: popup),
     ),
   );
   host.insert(entry);
@@ -126,4 +127,27 @@ Future<SilicaPopupController?> showAmalfiAsPopup({
     }),
   );
   return popup;
+}
+
+/// Sits where the popup's entry is in the window's overlay and closes the popup when the entry
+/// goes without it: the overlay is disposed with the window's content, and the popup (a surface
+/// of the compositor) would stay on the screen with nothing to close it (silica-os/mustache#25).
+class _PopupLife extends StatefulWidget {
+  const _PopupLife({required this.popup});
+
+  final SilicaPopupController popup;
+
+  @override
+  State<_PopupLife> createState() => _PopupLifeState();
+}
+
+class _PopupLifeState extends State<_PopupLife> {
+  @override
+  void dispose() {
+    if (widget.popup.isOpen) unawaited(widget.popup.close());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
