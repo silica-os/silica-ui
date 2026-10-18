@@ -226,4 +226,56 @@ void main() {
     expect(iconFolderNextTo(bundle.path), '${root.path}/app/icon');
     expect(iconFolderNextTo('${bundle.path}/'), '${root.path}/app/icon');
   });
+
+  testWidgets(
+    'the windowless menus and the window\'s bar take turns in one frame each way',
+    (tester) async {
+      final calls = mockChannel(tester);
+      final open = ValueNotifier(false);
+      addTearDown(open.dispose);
+      List<String> labels() =>
+          ((calls.lastWhere((c) => c.method == 'setMenus').arguments
+                      as Map)['menus']
+                  as List)
+              .map((m) => (m as Map)['label'] as String)
+              .toList();
+      await tester.pumpWidget(
+        ValueListenableBuilder<bool>(
+          valueListenable: open,
+          builder: (context, isOpen, _) => isOpen
+              ? SilicaMenuBar(
+                  menus: [
+                    SilicaMenus.app('Preview'),
+                    const SilicaMenu(label: 'View', menus: []),
+                  ],
+                  child: const SizedBox(),
+                )
+              : SilicaWindowlessMenuBar(
+                  menus: [
+                    SilicaMenus.app('Preview'),
+                    SilicaMenu(
+                      label: 'File',
+                      menus: [
+                        SilicaMenuItem(label: 'Open…', onSelected: () {}),
+                      ],
+                    ),
+                  ],
+                ),
+        ),
+      );
+      await tester.pump();
+      expect(labels(), ['Preview', 'File', '', '']);
+      // The window opens: its bar takes over (no lock assertion).
+      open.value = true;
+      await tester.pump();
+      await tester.pump();
+      expect(labels(), ['Preview', 'View', '', '']);
+      // It closes: the windowless menus again, not cleared by the window's bar going away.
+      open.value = false;
+      await tester.pump();
+      await tester.pump();
+      expect(labels(), ['Preview', 'File', '', '']);
+      expect(calls.last.method, 'setMenus');
+    },
+  );
 }

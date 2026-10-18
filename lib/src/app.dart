@@ -153,10 +153,20 @@ abstract final class SilicaApp {
       await _invoke<bool>('isHidden') ?? false;
 
   static bool _stayWindowless = false;
+  static bool _reopenOpensFiles = false;
 
-  /// Called from [onReopen]: the app answers this reopen without a window (a document app
-  /// whose Open panel was cancelled, APP-LC): the hidden window is not shown.
-  static void stayWindowless() => _stayWindowless = true;
+  /// Called from [onReopen]: the app answers this reopen without a window for now (a document
+  /// app showing its Open panel, APP-LC): the hidden window is not shown, neither after
+  /// [onReopen] nor by the embedder's own timer. If a document is chosen later the app builds
+  /// its window and calls [openWindow].
+  static void stayWindowless() {
+    _stayWindowless = true;
+    unawaited(_invoke('stayWindowless'));
+  }
+
+  /// During [onReopen]: whether files follow this reopen ([onOpen], a second launch with
+  /// documents), so a document app has something to show and asks for nothing.
+  static bool get reopenOpensFiles => _reopenOpensFiles;
 
   /// A call from the embedder; returns whether it was understood (for tests).
   static Future<bool> handle(String method, Object? args) async {
@@ -169,7 +179,12 @@ abstract final class SilicaApp {
         final build = _onReopen;
         if (windowless && build != null) {
           _stayWindowless = false;
-          await build();
+          _reopenOpensFiles = args['files'] == true;
+          try {
+            await build();
+          } finally {
+            _reopenOpensFiles = false;
+          }
           if (_stayWindowless) {
             _stayWindowless = false;
             return true;
@@ -223,6 +238,7 @@ abstract final class SilicaApp {
     _onLastWindowClosed = null;
     _onReopen = null;
     _stayWindowless = false;
+    _reopenOpensFiles = false;
     _info = const SilicaAppInfo(name: '');
     onSettings = null;
     _iconFolder = null;
@@ -310,15 +326,16 @@ class _SilicaAppWindowState extends State<SilicaAppWindow> {
   }
 
   Future<void> _reopen() async {
+    final opensFiles = SilicaApp.reopenOpensFiles;
     await widget.onReopen?.call();
     if (!mounted) return;
-    final choose = widget.chooseDocument;
-    if (choose != null && !await choose()) {
-      // The Open panel was cancelled: no window this time.
+    if (widget.chooseDocument != null && !opensFiles) {
+      // The Open panel alone: the hidden window stays hidden while it is up, and the new
+      // window shows only if a document is chosen.
       SilicaApp.stayWindowless();
+      unawaited(_openDocument());
       return;
     }
-    if (!mounted) return;
     setState(() {
       _open = true;
       _generation++;

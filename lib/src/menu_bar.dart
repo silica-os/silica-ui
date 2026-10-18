@@ -721,6 +721,39 @@ Map<ShortcutActivator, VoidCallback> silicaMenuShortcuts(
   return out;
 }
 
+/// The menus of an app with no window ([SilicaAppWindow.windowlessBuilder]: File › Open… of a
+/// document app whose Open panel was cancelled). Unlike [SilicaMenuBar] it does not hold the
+/// menu delegate: it publishes after each frame, so the next window's [SilicaMenuBar] takes the
+/// bar over in the same frame, and the closed window's bar going away does not clear these.
+/// No keyboard shortcuts: with no window the app has no keyboard focus.
+class SilicaWindowlessMenuBar extends StatefulWidget {
+  const SilicaWindowlessMenuBar({
+    super.key,
+    required this.menus,
+    this.child = const SizedBox.shrink(),
+  });
+
+  final List<PlatformMenuItem> menus;
+  final Widget child;
+
+  @override
+  State<SilicaWindowlessMenuBar> createState() =>
+      _SilicaWindowlessMenuBarState();
+}
+
+class _SilicaWindowlessMenuBarState extends State<SilicaWindowlessMenuBar> {
+  @override
+  Widget build(BuildContext context) {
+    // After the frame: past the closed window's bar clearing the menus (a microtask after the
+    // frame, cancelled by a newer setMenus).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      SilicaMenuDelegate.install().setMenus(widget.menus);
+    });
+    return widget.child;
+  }
+}
+
 /// The app's menus in Silica's menu bar, with their shortcuts working inside the app.
 ///
 /// ```dart

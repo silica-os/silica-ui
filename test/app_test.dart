@@ -170,23 +170,42 @@ void main() {
           await SilicaApp.handle('lastWindowClosed', const {});
           await tester.pump();
           calls.clear();
-          final reopen = SilicaApp.handle('reopen', const {'windowless': true});
+          await SilicaApp.handle('reopen', const {'windowless': true});
           await tester.pump();
           expect(asked, hasLength(1));
+          // While the panel is up the embedder does not show the hidden window by itself.
+          expect(calls.map((c) => c.method), contains('stayWindowless'));
           asked.single.complete(false);
-          await reopen;
           await tester.pump();
           await tester.pump();
           expect(find.byType(_Counter), findsNothing);
           expect(calls.map((c) => c.method), isNot(contains('openWindow')));
           // Chosen at the next reopen: the new window, shown after its frame.
-          final again = SilicaApp.handle('reopen', const {'windowless': true});
+          await SilicaApp.handle('reopen', const {'windowless': true});
           await tester.pump();
           asked.last.complete(true);
-          await again;
           await tester.pump();
           await tester.pump();
           expect(find.text('0'), findsOneWidget);
+          expect(calls.map((c) => c.method), contains('openWindow'));
+        },
+      );
+
+      testWidgets(
+        'a reopen with files (a second launch) builds the window at once',
+        (tester) async {
+          await tester.pumpWidget(app(startsWithDocument: true));
+          await SilicaApp.handle('lastWindowClosed', const {});
+          await tester.pump();
+          calls.clear();
+          await SilicaApp.handle('reopen', const {
+            'windowless': true,
+            'files': true,
+          });
+          await tester.pump();
+          expect(asked, isEmpty);
+          expect(find.text('0'), findsOneWidget);
+          await tester.pump();
           expect(calls.map((c) => c.method), contains('openWindow'));
         },
       );
