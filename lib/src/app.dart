@@ -152,6 +152,12 @@ abstract final class SilicaApp {
   static Future<bool> isHidden() async =>
       await _invoke<bool>('isHidden') ?? false;
 
+  static bool _stayWindowless = false;
+
+  /// Called from [onReopen]: the app answers this reopen without a window (a document app
+  /// whose Open panel was cancelled, APP-LC): the hidden window is not shown.
+  static void stayWindowless() => _stayWindowless = true;
+
   /// A call from the embedder; returns whether it was understood (for tests).
   static Future<bool> handle(String method, Object? args) async {
     switch (method) {
@@ -162,7 +168,12 @@ abstract final class SilicaApp {
         final windowless = args is Map && args['windowless'] == true;
         final build = _onReopen;
         if (windowless && build != null) {
+          _stayWindowless = false;
           await build();
+          if (_stayWindowless) {
+            _stayWindowless = false;
+            return true;
+          }
           // The window is shown after the frame that draws it.
           SchedulerBinding.instance.addPostFrameCallback((_) {
             unawaited(openWindow());
@@ -211,6 +222,7 @@ abstract final class SilicaApp {
     appAppearance.value = SilicaAppearance.system;
     _onLastWindowClosed = null;
     _onReopen = null;
+    _stayWindowless = false;
     _info = const SilicaAppInfo(name: '');
     onSettings = null;
     _iconFolder = null;
@@ -228,6 +240,9 @@ class SilicaAppWindow extends StatefulWidget {
     required this.builder,
     this.onClosed,
     this.onReopen,
+    this.chooseDocument,
+    this.startsWithDocument = true,
+    this.windowlessBuilder,
   });
 
   /// Builds the window's content; called again for every new window.
@@ -238,6 +253,22 @@ class SilicaAppWindow extends StatefulWidget {
 
   /// Before the new window is built (an app can reset or reload what it shows).
   final Future<void> Function()? onReopen;
+
+  /// A document app with nothing to show asks for its document first, as the reference does
+  /// (APP-LC): its Open panel alone, no empty window. Called at launch when
+  /// [startsWithDocument] is false, at every reopen and by the `open` callback of
+  /// [windowlessBuilder]; the window is built and shown only when it answers true (a document
+  /// was chosen), otherwise the app stays running with no window.
+  final Future<bool> Function()? chooseDocument;
+
+  /// Whether the app was launched with a document to show. Without one, and with
+  /// [chooseDocument], the window is not shown at launch: [chooseDocument] runs instead.
+  final bool startsWithDocument;
+
+  /// What the app has while it has no window (the menus a windowless app still offers: File ›
+  /// Open…); `open` runs [chooseDocument] and shows the window when a document is chosen.
+  final Widget Function(BuildContext context, Future<void> Function() open)?
+  windowlessBuilder;
 
   @override
   State<SilicaAppWindow> createState() => _SilicaAppWindowState();
@@ -252,6 +283,12 @@ class _SilicaAppWindowState extends State<SilicaAppWindow> {
     super.initState();
     SilicaApp.onLastWindowClosed = _closed;
     SilicaApp.onReopen = _reopen;
+    if (widget.chooseDocument != null && !widget.startsWithDocument) {
+      // No document: the window goes before its first frame and only the Open panel shows.
+      _open = false;
+      unawaited(SilicaApp.closeWindow());
+      unawaited(_openDocument());
+    }
     // Whether menus and popovers can be surfaces of their own (silica-desktop#4).
     unawaited(SilicaPopups.probe());
     unawaited(SilicaMenuService.probe());
@@ -275,17 +312,52 @@ class _SilicaAppWindowState extends State<SilicaAppWindow> {
   Future<void> _reopen() async {
     await widget.onReopen?.call();
     if (!mounted) return;
+    final choose = widget.chooseDocument;
+    if (choose != null && !await choose()) {
+      // The Open panel was cancelled: no window this time.
+      SilicaApp.stayWindowless();
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _open = true;
       _generation++;
     });
   }
 
+  bool _choosing = false;
+
+  /// Asks for a document while there is no window, and shows the new window when one is
+  /// chosen (launch without a document, File › Open… of [SilicaAppWindow.windowlessBuilder]).
+  Future<void> _openDocument() async {
+    final choose = widget.chooseDocument;
+    if (choose == null || _open || _choosing) return;
+    _choosing = true;
+    final chosen = await choose();
+    _choosing = false;
+    if (!chosen || !mounted || _open) return;
+    setState(() {
+      _open = true;
+      _generation++;
+    });
+    // Shown after the frame that draws it.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      unawaited(SilicaApp.openWindow());
+    });
+    SchedulerBinding.instance.scheduleFrame();
+  }
+
   @override
-  Widget build(BuildContext context) => _open
-      ? KeyedSubtree(
-          key: ValueKey(_generation),
-          child: Builder(builder: widget.builder),
-        )
-      : const SizedBox.shrink();
+  Widget build(BuildContext context) {
+    if (_open) {
+      return KeyedSubtree(
+        key: ValueKey(_generation),
+        child: Builder(builder: widget.builder),
+      );
+    }
+    final windowless = widget.windowlessBuilder;
+    return windowless == null
+        ? const SizedBox.shrink()
+        : Builder(builder: (context) => windowless(context, _openDocument));
+  }
 }
