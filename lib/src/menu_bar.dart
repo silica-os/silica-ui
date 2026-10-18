@@ -18,6 +18,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'app.dart';
 import 'windows.dart';
 
 /// The role of a top-level menu.
@@ -153,50 +154,75 @@ abstract final class SilicaMenus {
     meta: true,
   );
 
-  /// The app menu: About, Settings…, the app's [items], Services, Hide, Hide Others, Show
-  /// All and Quit. [name] is the app's name (the bar shows it in bold).
+  /// The standard app menu of every Silica app (silica-ui#99): About <App> (always there and
+  /// enabled: [onAbout], else the standard About panel, [SilicaApp.showAbout]), Settings… ⌘,
+  /// only when there is a settings action ([onSettings], else [SilicaApp.onSettings]), the
+  /// app's [items], Services, Hide ⌘H, Hide Others ⌥⌘H, Show All and Quit ⌘Q. [name] is the
+  /// app's name (the bar shows it in bold); empty, [SilicaApp.info]'s.
   static SilicaMenu app(
     String name, {
     VoidCallback? onAbout,
     VoidCallback? onSettings,
     List<PlatformMenuItem> items = const [],
-  }) => SilicaMenu(
-    label: name,
-    role: SilicaMenuRole.app,
-    menus: [
-      if (onAbout != null)
+  }) {
+    final settings = onSettings ?? SilicaApp.onSettings;
+    return SilicaMenu(
+      label: name.isEmpty ? SilicaApp.info.name : name,
+      role: SilicaMenuRole.app,
+      menus: [
         PlatformMenuItemGroup(
           members: [
-            SilicaMenuItem(role: SilicaMenuItemRole.about, onSelected: onAbout),
+            SilicaMenuItem(
+              role: SilicaMenuItemRole.about,
+              onSelected: onAbout ?? () => unawaited(SilicaApp.showAbout()),
+            ),
           ],
         ),
-      if (onSettings != null || items.isNotEmpty)
-        PlatformMenuItemGroup(
+        if (settings != null || items.isNotEmpty)
+          PlatformMenuItemGroup(
+            members: [
+              if (settings != null)
+                SilicaMenuItem(
+                  role: SilicaMenuItemRole.settings,
+                  shortcut: _settings,
+                  onSelected: settings,
+                ),
+              ...items,
+            ],
+          ),
+        const PlatformMenuItemGroup(
+          members: [SilicaMenuItem.system(SilicaMenuItemRole.services)],
+        ),
+        const PlatformMenuItemGroup(
           members: [
-            if (onSettings != null)
-              SilicaMenuItem(
-                role: SilicaMenuItemRole.settings,
-                shortcut: _settings,
-                onSelected: onSettings,
-              ),
-            ...items,
+            SilicaMenuItem.system(SilicaMenuItemRole.hide),
+            SilicaMenuItem.system(SilicaMenuItemRole.hideOthers),
+            SilicaMenuItem.system(SilicaMenuItemRole.showAll),
           ],
         ),
-      const PlatformMenuItemGroup(
-        members: [SilicaMenuItem.system(SilicaMenuItemRole.services)],
-      ),
-      const PlatformMenuItemGroup(
-        members: [
-          SilicaMenuItem.system(SilicaMenuItemRole.hide),
-          SilicaMenuItem.system(SilicaMenuItemRole.hideOthers),
-          SilicaMenuItem.system(SilicaMenuItemRole.showAll),
-        ],
-      ),
-      const PlatformMenuItemGroup(
-        members: [SilicaMenuItem.system(SilicaMenuItemRole.quit)],
-      ),
-    ],
-  );
+        const PlatformMenuItemGroup(
+          members: [SilicaMenuItem.system(SilicaMenuItemRole.quit)],
+        ),
+      ],
+    );
+  }
+
+  /// [menus] with the standard menus every app has, built here once (silica-ui#99): the app
+  /// menu first ([app], when the app gives none), the Window menu (the bar fills in Minimize,
+  /// Zoom, Tile, Bring All to Front and the window list) and the Help menu (with the bar's
+  /// search field) last. The app's own versions of them are kept as they are.
+  static List<PlatformMenuItem> withStandard(List<PlatformMenuItem> menus) {
+    SilicaMenuRole roleOf(PlatformMenuItem item) =>
+        item is SilicaMenu ? item.role : SilicaMenuRole.none;
+    final roles = menus.map(roleOf).toSet();
+    final out = [if (!roles.contains(SilicaMenuRole.app)) app(''), ...menus];
+    if (!roles.contains(SilicaMenuRole.window)) {
+      final help = out.indexWhere((m) => roleOf(m) == SilicaMenuRole.help);
+      out.insert(help < 0 ? out.length : help, window(''));
+    }
+    if (!roles.contains(SilicaMenuRole.help)) out.add(help(''));
+    return out;
+  }
 
   /// The Edit menu with the standard items: a null action leaves the item disabled. [label]
   /// is the menu's title in the app's language; [items] come after the standard ones.
@@ -469,8 +495,10 @@ class SilicaMenuDelegate extends PlatformMenuDelegate {
   Map<String, Object?>? lastModel;
 
   @override
-  void setMenus(List<PlatformMenuItem> topLevelMenus) {
+  void setMenus(List<PlatformMenuItem> menus) {
     _clearPending = false;
+    // Every app has the standard app, Window and Help menus, whatever it declares.
+    final topLevelMenus = SilicaMenus.withStandard(menus);
     final positional = <PlatformMenuItem>[];
     final canonical = _model(topLevelMenus, positional, 0);
     final text = jsonEncode(canonical);

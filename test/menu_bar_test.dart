@@ -316,11 +316,19 @@ void main() {
     await tester.pump();
     final model = calls.single.arguments as Map;
     final menus = model['menus'] as List;
-    expect((menus[0] as Map)['items'], [
+    // The standard app menu first, then the app's own, then Window and Help (silica-ui#99).
+    expect(menus.map((m) => (m as Map)['role']), [
+      'app',
+      null,
+      null,
+      'window',
+      'help',
+    ]);
+    expect((menus[1] as Map)['items'], [
       {'role': 'about', 'enabled': true},
       {'role': 'quit', 'enabled': true},
     ]);
-    final file = (menus[1] as Map)['items'] as List;
+    final file = (menus[2] as Map)['items'] as List;
     expect((file[0] as Map)['shortcut'], {'key': 'N', 'meta': true});
     expect(file[1], {'label': 'Nothing to do', 'enabled': false});
     expect((file[2] as Map)['shortcut'], {'key': '?', 'meta': true});
@@ -361,7 +369,10 @@ void main() {
     );
     await tester.pump();
     final model = calls.single.arguments as Map;
-    final item = ((model['menus'] as List).single as Map)['items'] as List;
+    final file = (model['menus'] as List).cast<Map>().firstWhere(
+      (m) => m['label'] == 'File',
+    );
+    final item = file['items'] as List;
     expect(item.single, containsPair('role', 'close_all'));
     expect(item.single, containsPair('enabled', true));
     expect(item.single, contains('id'));

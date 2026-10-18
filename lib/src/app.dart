@@ -18,6 +18,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'about.dart';
 import 'appearance.dart';
 import 'window.dart' show SilicaWindow;
 import 'menu_service.dart' show SilicaMenuService;
@@ -30,6 +31,35 @@ abstract final class SilicaApp {
     'silica/app',
     JSONMethodCodec(),
   );
+
+  static SilicaAppInfo _info = const SilicaAppInfo(name: '');
+
+  /// What the app says about itself (name, version, copyright, icon): the About panel shows
+  /// it and the standard app menu is named after it (silica-ui#99). Set once at start.
+  static SilicaAppInfo get info => _info;
+  static set info(SilicaAppInfo value) => _info = value;
+
+  /// App › Settings… (⌘,): the app's settings window. The standard app menu has the item only
+  /// when it is set (never a disabled placeholder).
+  static VoidCallback? onSettings;
+
+  /// App › About <App>: the standard About panel ([showSilicaAbout]).
+  static Future<void> showAbout() async {
+    await showSilicaAbout();
+  }
+
+  static String? _iconFolder;
+  static bool _iconFolderAsked = false;
+
+  /// The `icon/` folder installed next to the app's bundle (the embedder says where the bundle
+  /// is); null outside Silica, on an older embedder or without one.
+  static Future<String?> iconFolder() async {
+    if (_iconFolderAsked) return _iconFolder;
+    _iconFolderAsked = true;
+    final bundle = await askBundle(channel);
+    _iconFolder = bundle == null ? null : iconFolderNextTo(bundle);
+    return _iconFolder;
+  }
 
   static bool _quitWhenLastWindowCloses = false;
   static bool _quitEnabled = true;
@@ -178,6 +208,10 @@ abstract final class SilicaApp {
     appAppearance.value = SilicaAppearance.system;
     _onLastWindowClosed = null;
     _onReopen = null;
+    _info = const SilicaAppInfo(name: '');
+    onSettings = null;
+    _iconFolder = null;
+    _iconFolderAsked = false;
   }
 }
 
