@@ -376,4 +376,67 @@ void main() {
       );
     });
   });
+
+  group('Increase Contrast', () {
+    // WCAG contrast of [fg] over an opaque [bg].
+    double ratio(Color fg, Color bg) {
+      final over = Color.alphaBlend(fg, bg);
+      final a = over.computeLuminance() + 0.05;
+      final b = bg.computeLuminance() + 0.05;
+      return a > b ? a / b : b / a;
+    }
+
+    for (final brightness in Brightness.values) {
+      test('secondary text and lines are stronger in $brightness', () {
+        final normal = AmalfiThemeData(brightness: brightness).colors;
+        final strong = AmalfiThemeData(
+          brightness: brightness,
+          increaseContrast: true,
+        ).colors;
+        final bg = normal.surfaceWindow;
+        expect(
+          ratio(strong.textSecondary, bg),
+          greaterThan(ratio(normal.textSecondary, bg)),
+        );
+        expect(
+          ratio(strong.textTertiary, bg),
+          greaterThan(ratio(normal.textTertiary, bg)),
+        );
+        expect(
+          ratio(strong.lineBorder, bg),
+          greaterThan(ratio(normal.lineBorder, bg)),
+        );
+        expect(
+          ratio(strong.lineSeparator, bg),
+          greaterThan(ratio(normal.lineSeparator, bg)),
+        );
+        expect(ratio(strong.textSecondary, bg), greaterThanOrEqualTo(7));
+        // The apps' palettes stay.
+        expect(strong.mail.flag, normal.mail.flag);
+      });
+    }
+
+    test('it follows an accent chosen in the settings', () {
+      const accent = Color(0xFFE5338A);
+      final plain = const AmalfiThemeData.light(accent: accent).colors;
+      final strong = const AmalfiThemeData.light(
+        accent: accent,
+        increaseContrast: true,
+      ).colors;
+      expect(
+        strong.accentAmalfi.computeLuminance(),
+        lessThan(plain.accentAmalfi.computeLuminance()),
+      );
+    });
+
+    test('the look says so and the theme follows', () {
+      expect(
+        SystemLook.fromState(const {
+          'look.increaseContrast': true,
+        }).increaseContrast,
+        isTrue,
+      );
+      expect(const SystemLook().increaseContrast, isFalse);
+    });
+  });
 }

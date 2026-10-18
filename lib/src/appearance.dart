@@ -16,7 +16,7 @@
 
 import 'package:flutter/widgets.dart';
 
-import 'system_look.dart' show SystemLookScope;
+import 'system_look.dart' show SilicaSystemLook, SystemLook, SystemLookScope;
 import 'window.dart' show SilicaWindow;
 
 /// How an app or a window picks between the light and the dark appearance.
@@ -175,7 +175,60 @@ class _SilicaAppearanceScopeState extends State<SilicaAppearanceScope> {
     }
     return _ResolvedAppearance(
       brightness: brightness,
-      child: SystemLookScope(child: child),
+      child: SystemLookScope(child: _TextScale(child: child)),
     );
   }
+}
+
+/// Larger Text: the text of the app below grows by the system look's `textScale`.
+class _TextScale extends StatelessWidget {
+  const _TextScale({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<SystemLook>(
+    valueListenable: SilicaSystemLook.notifier,
+    builder: (context, look, _) {
+      final media = MediaQuery.maybeOf(context);
+      if (media == null) return child;
+      // The wrapper is always there, so that a change never rebuilds the tree below.
+      return MediaQuery(
+        data: media.copyWith(
+          textScaler: look.textScale == 1.0
+              ? media.textScaler
+              : _Compound(media.textScaler, look.textScale),
+        ),
+        child: child,
+      );
+    },
+  );
+}
+
+/// The text scaler of the platform with the system look's factor on top.
+class _Compound extends TextScaler {
+  const _Compound(this.base, this.factor);
+
+  final TextScaler base;
+  final double factor;
+
+  @override
+  double scale(double fontSize) => base.scale(fontSize) * factor;
+
+  @override
+  double get textScaleFactor => scale(1);
+
+  @override
+  TextScaler clamp({
+    double minScaleFactor = 0,
+    double maxScaleFactor = double.infinity,
+  }) =>
+      TextScaler.linear(textScaleFactor.clamp(minScaleFactor, maxScaleFactor));
+
+  @override
+  bool operator ==(Object other) =>
+      other is _Compound && other.base == base && other.factor == factor;
+
+  @override
+  int get hashCode => Object.hash(base, factor);
 }

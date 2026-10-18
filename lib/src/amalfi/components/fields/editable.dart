@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import '../../../controls/control_base.dart' show WindowActiveScope;
 import '../../theme.dart';
 import 'metrics.dart';
+import 'text_replacement.dart';
 
 /// Editable text in an Amalfi field: [style] text, the caret (1.5 × 16 `Accent/Amalfi`, hidden
 /// in an inactive window), the selection in `Accent/Amalfi Soft`, and [placeholder] in
@@ -147,7 +148,16 @@ class AmalfiEditableState extends State<AmalfiEditable>
       selectionColor: AmalfiTheme.of(context).selectionColor,
       rendererIgnoresPointer: true,
       enableInteractiveSelection: widget.enabled,
-      inputFormatters: widget.inputFormatters,
+      inputFormatters: [
+        ...?widget.inputFormatters,
+        // Text replacements, in the fields that take ordinary text.
+        if (!widget.obscureText &&
+            widget.enabled &&
+            (widget.keyboardType == null ||
+                widget.keyboardType == TextInputType.text ||
+                widget.keyboardType == TextInputType.multiline))
+          const TextReplacementFormatter(),
+      ],
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
       keyboardType:

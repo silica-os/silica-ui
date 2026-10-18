@@ -935,6 +935,63 @@ final class AmalfiColors {
         clock: clock,
       );
 
+  /// These colours with every system colour (not the apps' palettes) passed
+  /// through [transform], which gets the token's field name (`textSecondary`)
+  /// and its colour: the variants of the palette (Increase Contrast) are made
+  /// with it.
+  AmalfiColors mapSystem(Color Function(String field, Color color) transform) =>
+      AmalfiColors._(
+        brightness: brightness,
+        accentAmalfi: transform('accentAmalfi', accentAmalfi),
+        accentAmalfiPressed: transform(
+          'accentAmalfiPressed',
+          accentAmalfiPressed,
+        ),
+        accentAmalfiSoft: transform('accentAmalfiSoft', accentAmalfiSoft),
+        paletteLimone: transform('paletteLimone', paletteLimone),
+        paletteLimoneScuro: transform('paletteLimoneScuro', paletteLimoneScuro),
+        paletteArancia: transform('paletteArancia', paletteArancia),
+        paletteTerracotta: transform('paletteTerracotta', paletteTerracotta),
+        paletteBouganville: transform('paletteBouganville', paletteBouganville),
+        paletteUlivo: transform('paletteUlivo', paletteUlivo),
+        paletteMare: transform('paletteMare', paletteMare),
+        paletteLavanda: transform('paletteLavanda', paletteLavanda),
+        surfaceWindow: transform('surfaceWindow', surfaceWindow),
+        surfaceSidebar: transform('surfaceSidebar', surfaceSidebar),
+        surfaceRaised: transform('surfaceRaised', surfaceRaised),
+        surfaceSunken: transform('surfaceSunken', surfaceSunken),
+        surfaceControl: transform('surfaceControl', surfaceControl),
+        surfaceControlPressed: transform(
+          'surfaceControlPressed',
+          surfaceControlPressed,
+        ),
+        textPrimary: transform('textPrimary', textPrimary),
+        textSecondary: transform('textSecondary', textSecondary),
+        textTertiary: transform('textTertiary', textTertiary),
+        textOnAccent: transform('textOnAccent', textOnAccent),
+        lineSeparator: transform('lineSeparator', lineSeparator),
+        lineBorder: transform('lineBorder', lineBorder),
+        lineFocus: transform('lineFocus', lineFocus),
+        glassTint: transform('glassTint', glassTint),
+        glassTintThick: transform('glassTintThick', glassTintThick),
+        glassRimLight: transform('glassRimLight', glassRimLight),
+        glassRimDark: transform('glassRimDark', glassRimDark),
+        shadowSoft: transform('shadowSoft', shadowSoft),
+        stateHoverOverlay: transform('stateHoverOverlay', stateHoverOverlay),
+        statePressOverlay: transform('statePressOverlay', statePressOverlay),
+        shadow1: transform('shadow1', shadow1),
+        shadow2: transform('shadow2', shadow2),
+        shadow3: transform('shadow3', shadow3),
+        menuBarSelection: transform('menuBarSelection', menuBarSelection),
+        terminal: terminal,
+        mail: mail,
+        faro: faro,
+        missionControl: missionControl,
+        preview: preview,
+        calculator: calculator,
+        clock: clock,
+      );
+
   /// Every colour token name, apps included, in the order of `tokens.json`.
   static const List<String> tokenNames = [
     'Accent/Amalfi',

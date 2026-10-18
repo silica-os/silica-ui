@@ -13,6 +13,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -95,6 +96,9 @@ class SystemLook {
     this.doubleClickMs = 300,
     this.reduceTransparency = false,
     this.reduceMotion = false,
+    this.increaseContrast = false,
+    this.textScale = 1.0,
+    this.textReplacements = const [],
   });
 
   /// The accent of the controls.
@@ -130,6 +134,17 @@ class SystemLook {
   /// Animations are skipped: [MediaQuery.disableAnimations] is true under the scope.
   final bool reduceMotion;
 
+  /// The high-contrast palette (Settings › Accessibility › Display › Increase Contrast).
+  final bool increaseContrast;
+
+  /// The size of the apps' text relative to the design's, 1-1.5 (Settings › Accessibility ›
+  /// Larger Text); applied to the apps by [SilicaAppearanceScope], not to the shell.
+  final double textScale;
+
+  /// Short texts that become phrases as the user types (Settings › Keyboard › Text
+  /// Replacements), as (shortcut, phrase); applied by the Amalfi text fields.
+  final List<(String, String)> textReplacements;
+
   /// The look from the daemon's `State()` dictionary (`look.*` keys); a missing or odd value is
   /// the default.
   static SystemLook fromState(Map<Object?, Object?> state) {
@@ -150,12 +165,30 @@ class SystemLook {
       keyboardNavigation: get('keyboardNavigation') == true,
       reduceTransparency: get('reduceTransparency') == true,
       reduceMotion: get('reduceMotion') == true,
+      increaseContrast: get('increaseContrast') == true,
+      textReplacements: _replacements(state['text.replacements']),
+      textScale: switch (get('textScale')) {
+        final num n when n.isFinite => n.toDouble().clamp(1.0, 1.5),
+        _ => 1.0,
+      },
       doubleClickMs: switch (get('doubleClickMs')) {
         final num n when n.isFinite => n.round().clamp(150, 1000),
         _ => 300,
       },
     );
   }
+
+  /// The list of the daemon's `text.replacements` (`a(ss)`); an odd entry is skipped.
+  static List<(String, String)> _replacements(Object? value) => [
+    if (value is List)
+      for (final item in value)
+        if (item is List &&
+            item.length == 2 &&
+            item[0] is String &&
+            (item[0] as String).isNotEmpty &&
+            item[1] is String)
+          (item[0] as String, item[1] as String),
+  ];
 
   /// An accent by name (`multicolour` and `multicolor` both); null for `automatic` and unknown
   /// names.
@@ -186,7 +219,10 @@ class SystemLook {
       other.keyboardNavigation == keyboardNavigation &&
       other.doubleClickMs == doubleClickMs &&
       other.reduceTransparency == reduceTransparency &&
-      other.reduceMotion == reduceMotion;
+      other.reduceMotion == reduceMotion &&
+      other.increaseContrast == increaseContrast &&
+      other.textScale == textScale &&
+      listEquals(other.textReplacements, textReplacements);
 
   @override
   int get hashCode => Object.hash(
@@ -203,6 +239,9 @@ class SystemLook {
     doubleClickMs,
     reduceTransparency,
     reduceMotion,
+    increaseContrast,
+    textScale,
+    Object.hashAll(textReplacements),
   );
 
   @override
