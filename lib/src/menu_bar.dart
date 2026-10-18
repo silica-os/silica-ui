@@ -166,15 +166,21 @@ abstract final class SilicaMenus {
     List<PlatformMenuItem> items = const [],
   }) {
     final settings = onSettings ?? SilicaApp.onSettings;
+    final label = name.isEmpty ? SilicaApp.info.name : name;
     return SilicaMenu(
-      label: name.isEmpty ? SilicaApp.info.name : name,
+      label: label,
       role: SilicaMenuRole.app,
       menus: [
         PlatformMenuItemGroup(
           members: [
             SilicaMenuItem(
               role: SilicaMenuItemRole.about,
-              onSelected: onAbout ?? () => unawaited(SilicaApp.showAbout()),
+              // The panel names the app as its menu does (in the user's language).
+              onSelected:
+                  onAbout ??
+                  () => unawaited(
+                    SilicaApp.showAbout(name: label.isEmpty ? null : label),
+                  ),
             ),
           ],
         ),
@@ -200,9 +206,11 @@ abstract final class SilicaMenus {
             SilicaMenuItem.system(SilicaMenuItemRole.showAll),
           ],
         ),
-        const PlatformMenuItemGroup(
-          members: [SilicaMenuItem.system(SilicaMenuItemRole.quit)],
-        ),
+        // No Quit in an app that has none (the file manager, [SilicaApp.quitEnabled]).
+        if (SilicaApp.quitEnabled)
+          const PlatformMenuItemGroup(
+            members: [SilicaMenuItem.system(SilicaMenuItemRole.quit)],
+          ),
       ],
     );
   }

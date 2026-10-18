@@ -43,9 +43,12 @@ abstract final class SilicaApp {
   /// when it is set (never a disabled placeholder).
   static VoidCallback? onSettings;
 
-  /// App › About <App>: the standard About panel ([showSilicaAbout]).
-  static Future<void> showAbout() async {
-    await showSilicaAbout();
+  /// App › About <App>: the standard About panel ([showSilicaAbout]) of [info], named [name]
+  /// when given (the app menu's name, in the user's language).
+  static Future<void> showAbout({String? name}) async {
+    await showSilicaAbout(
+      info: name == null ? null : info.copyWith(name: name),
+    );
   }
 
   static String? _iconFolder;

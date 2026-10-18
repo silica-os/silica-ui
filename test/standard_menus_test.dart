@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:silica_ui/silica_ui.dart';
-import 'package:silica_ui/src/about.dart' show iconFolderNextTo;
+import 'package:silica_ui/src/about.dart' show bundleOf, iconFolderNextTo;
 
 import 'menu_bar_test.dart' show choose, mockChannel;
 
@@ -90,6 +90,24 @@ void main() {
     ]);
     expect(menus.map((m) => m['role']), ['app', 'window', 'help']);
     expect(roles(menus.first).take(4), ['about', '—', 'X', '—']);
+  });
+
+  testWidgets('an app without Quit has no Quit item', (tester) async {
+    SilicaApp.quitEnabled = false;
+    final menus = await publish(tester, [SilicaMenus.app('Mustache')]);
+    expect(roles(menus.first).last, 'show_all');
+    expect(roles(menus.first), isNot(contains('quit')));
+  });
+
+  testWidgets('the bundle path comes from the embedder\'s appInfo answer', (
+    tester,
+  ) async {
+    expect(
+      bundleOf({'appId': 'a', 'bundle': '/x/flutter_assets'}),
+      '/x/flutter_assets',
+    );
+    expect(bundleOf({'appId': 'a'}), isNull);
+    expect(bundleOf(null), isNull);
   });
 
   testWidgets('About <App> opens the standard About panel, once', (

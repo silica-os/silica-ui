@@ -40,8 +40,8 @@ class SilicaAppInfo {
   /// installed (the embedder says where the bundle is).
   final String? icon;
 
-  SilicaAppInfo copyWith({String? icon}) => SilicaAppInfo(
-    name: name,
+  SilicaAppInfo copyWith({String? name, String? icon}) => SilicaAppInfo(
+    name: name ?? this.name,
     version: version,
     copyright: copyright,
     icon: icon ?? this.icon,
