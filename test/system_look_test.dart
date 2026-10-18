@@ -403,4 +403,50 @@ void main() {
       1000,
     );
   });
+
+  testWidgets('Reduce Motion turns animations off for the widgets below', (
+    tester,
+  ) async {
+    late bool disabled;
+    await tester.pumpWidget(
+      scoped(
+        Builder(
+          builder: (context) {
+            disabled = MediaQuery.disableAnimationsOf(context);
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    expect(disabled, isFalse);
+    SilicaSystemLook.apply(const SystemLook(reduceMotion: true));
+    await tester.pump();
+    expect(disabled, isTrue);
+    expect(
+      SystemLook.fromState(const {
+        'look.reduceTransparency': true,
+      }).reduceTransparency,
+      isTrue,
+    );
+  });
+
+  testWidgets('Reduce Transparency draws the Flutter glass opaque', (
+    tester,
+  ) async {
+    Future<void> pump() => tester.pumpWidget(
+      scoped(
+        const SizedBox(
+          width: 100,
+          height: 100,
+          child: AmalfiGlass(radius: 12, child: SizedBox.expand()),
+        ),
+      ),
+    );
+    await pump();
+    final blurred = find.byType(BackdropFilter);
+    expect(blurred, findsWidgets);
+    SilicaSystemLook.apply(const SystemLook(reduceTransparency: true));
+    await tester.pump();
+    expect(blurred, findsNothing);
+  });
 }

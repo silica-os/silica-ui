@@ -14,6 +14,7 @@ import 'components/popovers/popover_surface.dart';
 import 'foundation/shadow.dart';
 import 'glass_refraction.dart';
 import 'smooth_border.dart';
+import '../system_look.dart';
 import 'theme.dart';
 import 'token_types.dart';
 import 'tokens.g.dart';
@@ -246,7 +247,9 @@ class _AmalfiGlassState extends State<AmalfiGlass>
       return widget._buildCompositor();
     }
     final material = widget.material;
-    final opaque = widget.opaque;
+    // Reduce Transparency (Settings › Accessibility › Display) draws every glass opaque.
+    final opaque =
+        widget.opaque || SystemLookScope.of(context).reduceTransparency;
     final theme = AmalfiTheme.of(context);
     final brightness = theme.brightness;
     final shape = widget.outline;

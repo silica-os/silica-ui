@@ -93,6 +93,8 @@ class SystemLook {
     this.windowTint = false,
     this.keyboardNavigation = false,
     this.doubleClickMs = 300,
+    this.reduceTransparency = false,
+    this.reduceMotion = false,
   });
 
   /// The accent of the controls.
@@ -122,6 +124,12 @@ class SystemLook {
   /// Mouse; 300 by default).
   final int doubleClickMs;
 
+  /// Glass is drawn opaque (Settings › Accessibility › Display).
+  final bool reduceTransparency;
+
+  /// Animations are skipped: [MediaQuery.disableAnimations] is true under the scope.
+  final bool reduceMotion;
+
   /// The look from the daemon's `State()` dictionary (`look.*` keys); a missing or odd value is
   /// the default.
   static SystemLook fromState(Map<Object?, Object?> state) {
@@ -140,6 +148,8 @@ class SystemLook {
           : 0.5,
       windowTint: get('windowTint') == true,
       keyboardNavigation: get('keyboardNavigation') == true,
+      reduceTransparency: get('reduceTransparency') == true,
+      reduceMotion: get('reduceMotion') == true,
       doubleClickMs: switch (get('doubleClickMs')) {
         final num n when n.isFinite => n.round().clamp(150, 1000),
         _ => 300,
@@ -174,7 +184,9 @@ class SystemLook {
       other.glass == glass &&
       other.windowTint == windowTint &&
       other.keyboardNavigation == keyboardNavigation &&
-      other.doubleClickMs == doubleClickMs;
+      other.doubleClickMs == doubleClickMs &&
+      other.reduceTransparency == reduceTransparency &&
+      other.reduceMotion == reduceMotion;
 
   @override
   int get hashCode => Object.hash(
@@ -189,6 +201,8 @@ class SystemLook {
     windowTint,
     keyboardNavigation,
     doubleClickMs,
+    reduceTransparency,
+    reduceMotion,
   );
 
   @override
@@ -365,6 +379,17 @@ class _SystemLookScopeState extends State<SystemLookScope> {
         selectionColor: color?.withAlpha(dark ? 0x66 : 0x55),
         child: child,
       );
+      // Reduce Motion: the widgets below see MediaQuery.disableAnimations (the wrapper is
+      // always there, so a change never rebuilds the tree below).
+      final media = MediaQuery.maybeOf(context);
+      if (media != null) {
+        child = MediaQuery(
+          data: media.copyWith(
+            disableAnimations: media.disableAnimations || look.reduceMotion,
+          ),
+          child: child,
+        );
+      }
       return _LookInherited(look: look, child: child);
     },
   );
