@@ -606,4 +606,39 @@ void main() {
       semantics.dispose();
     });
   });
+
+  testWidgets(
+    'a menu that goes away during the blink still runs its choice and '
+    'closes its root',
+    (tester) async {
+      final log = <String>[];
+      final show = ValueNotifier(true);
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: show,
+            builder: (_, on, _) => on
+                ? Align(
+                    alignment: Alignment.topLeft,
+                    child: AmalfiMenu(
+                      autofocus: true,
+                      onDismiss: () => log.add('dismissed'),
+                      entries: [
+                        AmalfiMenuAction('Go', onSelected: () => log.add('go')),
+                      ],
+                    ),
+                  )
+                : const SizedBox(),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Go'));
+      await tester.pump(const Duration(milliseconds: 20));
+      show.value = false;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(log, ['go', 'dismissed']);
+    },
+  );
 }

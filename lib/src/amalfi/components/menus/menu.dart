@@ -334,6 +334,12 @@ class _AmalfiMenuListState extends State<AmalfiMenuList> {
       t?.cancel();
     }
     _ownFocus?.dispose();
+    // A choice never gets lost: when this menu goes away during the blink (a submenu popup
+    // closed under it), the action still runs and the menu it belongs to still closes,
+    // otherwise the root menu would stay on the screen.
+    final pending = _finishChoice;
+    _finishChoice = null;
+    if (pending != null) scheduleMicrotask(pending);
     _submenuOpenings++;
     final popup = _submenuPopup;
     _submenuPopup = null;
@@ -572,12 +578,24 @@ class _AmalfiMenuListState extends State<AmalfiMenuList> {
     _blinkTimer = Timer(AmalfiMenuMetrics.blinkOn, () {
       if (mounted) setState(() => _blinkOff = false);
     });
-    _closeTimer = Timer(AmalfiMenuMetrics.chooseClose, () {
-      action.onSelected?.call();
-      widget.onDismiss?.call();
-      if (mounted) _choosing = false;
-    });
+    final onDismiss = widget.onDismiss;
+    void finish() {
+      _finishChoice = null;
+      try {
+        action.onSelected?.call();
+      } finally {
+        // The menu closes whatever the action did (or threw).
+        onDismiss?.call();
+        if (mounted) _choosing = false;
+      }
+    }
+
+    _finishChoice = finish;
+    _closeTimer = Timer(AmalfiMenuMetrics.chooseClose, finish);
   }
+
+  /// The chosen action and the closing of the menu, while they wait for the blink to end.
+  VoidCallback? _finishChoice;
 
   // Keyboard.
 
