@@ -214,6 +214,7 @@ Future<KitPixelResult> kitPixels(
   bool maskText = false,
   List<String> maskLayers = const [],
   List<Rect> mask = const [],
+  Offset? origin,
   Future<void> Function(WidgetTester tester)? prepare,
 }) async {
   debugDisableShadows = false;
@@ -228,6 +229,7 @@ Future<KitPixelResult> kitPixels(
       maskText: maskText,
       maskLayers: maskLayers,
       mask: mask,
+      origin: origin,
       prepare: prepare,
     );
   } finally {
@@ -495,9 +497,10 @@ void main() {
         }
       }
       for (final a in appearances) {
-        // The kit's Open masters show a provisional placement (200 wide, 4 below, or the row
-        // centred); the measured one is covered by menu_placement_test.dart.
-        testWidgets('$kind Open $a', skip: true, (tester) async {
+        // The Open masters place the menu by the measured rules (menu_placement_test.dart):
+        // pop-up 136 x 104, button (12, 26), menu (0, 0) with "Lemon" over the button;
+        // pull-down 129 x 135, button (5, 0), menu (31 below the top) 120 wide.
+        testWidgets('$kind Open $a', (tester) async {
           final master = KitMaster.load('Buttons/$kind/Open/Rest/$a');
           final popUp = kind == 'Pop-up';
           final button = popUp
@@ -525,10 +528,25 @@ void main() {
                 );
           final widget = keyed(
             SizedBox(
-              width: 200,
-              height: 136,
-              child: Align(alignment: Alignment.topLeft, child: button),
+              width: popUp ? 136 : 129,
+              height: popUp ? 104 : 135,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: popUp ? 12 : 5,
+                    top: popUp ? 26 : 0,
+                    width: 124,
+                    child: button,
+                  ),
+                ],
+              ),
             ),
+          );
+          // The geometry scene is 20 pt from the view's edge, so that the 6 pt screen margin
+          // does not move the menu (the pixel scene has the master's own margin).
+          final inView = Padding(
+            padding: const EdgeInsets.all(20),
+            child: widget,
           );
           Future<void> open(WidgetTester tester) async {
             final mouse = await _pointer(tester);
@@ -555,7 +573,8 @@ void main() {
             }
           }
 
-          final root = await pumpKitScene(tester, widget, master: master);
+          await pumpKitScene(tester, inView, master: master);
+          final root = find.byKey(const ValueKey('button-under-test'));
           await open(tester);
           expectKitGeometry(
             tester,
@@ -573,6 +592,9 @@ void main() {
             master,
             widget,
             maskText: true,
+            // The renderBounds estimate scales the menu's shadow with the menu's resize
+            // (120 of 200 wide); the PNG has the full 32 pt blur left of the menu.
+            origin: popUp ? null : const Offset(32, 1),
             mask: [
               // Kit defect (user decision 7): the pop-up chevron keeps the 24 pt stroke.
               if (popUp) const Rect.fromLTWH(100, 6, 16, 16),

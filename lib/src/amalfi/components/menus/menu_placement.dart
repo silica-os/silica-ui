@@ -8,8 +8,9 @@ import 'package:flutter/animation.dart';
 
 /// The measures of the menu of a pop-up or pull-down button, in points.
 abstract final class AmalfiPopUpMenuMetrics {
-  /// The padding of the menu above the first row and below the last.
-  static const double padding = 5;
+  /// The padding of the menu above the first row and below the last (Amalfi's 4, the shared
+  /// Menus/Menu/Simple master; macOS has 5).
+  static const double padding = 4;
 
   /// The gap kept to the output's edges (the top, the bottom of the usable area, the right).
   static const double screenMargin = 6;
@@ -25,22 +26,28 @@ abstract final class AmalfiPopUpMenuMetrics {
     AmalfiPopUpControl.mini => 19,
   };
 
-  /// How far below the control's top the selected row's top sits: 3 for a mini control.
+  /// How far below the control's top the selected row's top sits: the row is centred on the
+  /// control (the baselines coincide) plus the text drop of the control class, 0 (regular),
+  /// 1 (small), 4 (mini): `(height - row) / 2 + drop`. A 28 pt regular control puts the 24 pt
+  /// row 2 below its top (kit masters Buttons/Pop-up/Open); small (24) gives 2, mini (20) 4.5.
   static double rowTopInControl(AmalfiPopUpControl control, double height) =>
-      switch (control) {
-        AmalfiPopUpControl.mini => 3,
-        // Taller controls than the measured 24 keep the row centred on them.
-        AmalfiPopUpControl.regular => math.max(0, (height - 24) / 2),
-        AmalfiPopUpControl.small => 0,
-      };
+      (height - rowHeight(control)) / 2 + textDrop(control);
 
-  /// A pull-down's gap below its control.
+  /// How much lower than the control's label the selected row's text sits.
+  static double textDrop(AmalfiPopUpControl control) => switch (control) {
+    AmalfiPopUpControl.regular => 0,
+    AmalfiPopUpControl.small => 1,
+    AmalfiPopUpControl.mini => 4,
+  };
+
+  /// A pull-down's gap below its control (kit: button 0..28, menu from 31).
   static const double pullDownGap = 3;
 
   /// A pull-down's left edge, left of the control's.
   static const double pullDownLeft = 5;
 
-  /// A pull-down is this much narrower than its control (it grows with longer rows).
+  /// A pull-down is this much narrower than its control (kit: 120 under a 124 button; it grows
+  /// with longer rows).
   static const double pullDownNarrower = 4;
 
   /// The scroll-arrow strip at a cut end: about one row.
@@ -69,16 +76,16 @@ class _FadeOutCurve extends Curve {
   double transformInternal(double t) => Curves.easeOut.flipped.transform(t);
 }
 
-/// The class of a control for the measures above, by its height: 16 (mini), 20 (small), 24
-/// and above (regular).
+/// The class of a control for the measures above, by its height: 20 (mini), 24 (small), 28
+/// and above (regular), the Amalfi control sizes.
 enum AmalfiPopUpControl {
   mini,
   small,
   regular;
 
-  static AmalfiPopUpControl ofHeight(double height) => height <= 17
+  static AmalfiPopUpControl ofHeight(double height) => height <= 21
       ? mini
-      : height <= 21
+      : height <= 25
       ? small
       : regular;
 }
@@ -114,7 +121,7 @@ class AmalfiMenuPlacement {
 
   Offset get topLeft => Offset(left, top);
 
-  /// A pop-up button's menu: the selected row's top on the control's top.
+  /// A pop-up button's menu: the selected row over the control (see [AmalfiPopUpMenuMetrics.rowTopInControl]).
   ///
   /// [selectedTop] is the selected row's top inside the menu (padding included), [height] the
   /// menu's full height, [width] its width, [first] whether the selected row is the first one

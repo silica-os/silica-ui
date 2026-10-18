@@ -10,10 +10,10 @@ import 'support/scene.dart';
 
 const _bounds = Rect.fromLTWH(0, 0, 1000, 800);
 
-/// Five rows of 24 and 5 of padding on both ends: 130.
-const _height = 130.0;
+/// Five rows of 24 and 4 of padding on both ends: 128.
+const _height = 128.0;
 
-double _rowTop(int i) => 5 + 24.0 * i;
+double _rowTop(int i) => 4 + 24.0 * i;
 
 AmalfiMenuPlacement _popUp(
   Rect control,
@@ -31,15 +31,17 @@ AmalfiMenuPlacement _popUp(
 );
 
 void main() {
-  const control = Rect.fromLTWH(300, 300, 120, 24);
+  const control = Rect.fromLTWH(300, 300, 120, 28);
+  // The selected row is centred on the control: 2 below its top.
+  const rowOn = 302.0;
 
   group('pop-up placement', () {
     test(
-      'the selected row\'s top is the control\'s top: first, middle, last',
+      'the selected row is centred on the control (2 below its top): first, middle, last',
       () {
         for (final i in [0, 2, 4]) {
           final p = _popUp(control, i);
-          expect(p.top + _rowTop(i), 300, reason: 'row $i');
+          expect(p.top + _rowTop(i), rowOn, reason: 'row $i');
           expect(p.left, 288);
           expect(p.height, _height);
           expect(p.scroll, 0);
@@ -50,38 +52,39 @@ void main() {
     );
 
     test(
-      'the left edge is 12 left of the control; the text lands 5 right of its label',
+      'the left edge is 12 left of the control; the text lands 4 right of its label',
       () {
         final p = _popUp(control, 1);
         expect(p.left, control.left - 12);
-        // Row text 30 into the menu, the label 12 + 1 into the control.
-        expect(p.left + 30 - (control.left + 13), 5);
+        // Row text 28 into the menu, the label 12 into the control (kit master).
+        expect(p.left + 28 - (control.left + 12), 4);
       },
     );
 
     test('small and mini controls', () {
-      final small = _popUp(const Rect.fromLTWH(300, 300, 100, 20), 1);
+      // Baselines coincide, plus the text drop (small 1, mini 4).
+      final small = _popUp(const Rect.fromLTWH(300, 300, 100, 24), 1);
       expect(small.left, 289);
-      expect(small.top + _rowTop(1), 300);
-      final mini = _popUp(const Rect.fromLTWH(300, 300, 100, 16), 1);
+      expect(small.top + _rowTop(1), 302);
+      final mini = _popUp(const Rect.fromLTWH(300, 300, 100, 20), 1);
       expect(mini.left, 288);
-      expect(mini.top + _rowTop(1), 303);
+      expect(mini.top + _rowTop(1), 304.5);
       expect(AmalfiPopUpMenuMetrics.rowHeight(AmalfiPopUpControl.regular), 24);
       expect(AmalfiPopUpMenuMetrics.rowHeight(AmalfiPopUpControl.small), 22);
       expect(AmalfiPopUpMenuMetrics.rowHeight(AmalfiPopUpControl.mini), 19);
     });
 
     test('first item with no room below: the menu opens above the control', () {
-      final p = _popUp(const Rect.fromLTWH(300, 770, 120, 24), 0);
+      final p = _popUp(const Rect.fromLTWH(300, 770, 120, 28), 0);
       expect(p.flipped, isTrue);
       expect(p.top + p.height, 770);
       expect(p.arrowTop || p.arrowBottom, isFalse);
     });
 
     test('a middle item near the bottom keeps the alignment and scrolls', () {
-      final p = _popUp(const Rect.fromLTWH(300, 760, 120, 24), 2);
+      final p = _popUp(const Rect.fromLTWH(300, 760, 120, 28), 2);
       expect(p.flipped, isFalse);
-      expect(p.top, 760 - _rowTop(2));
+      expect(p.top, 762 - _rowTop(2));
       // Cut at 6 from the bottom: 794.
       expect(p.top + p.height, 794);
       expect(p.scroll, 0);
@@ -90,25 +93,25 @@ void main() {
     });
 
     test('the last item near the top does not flip: it scrolls', () {
-      final p = _popUp(const Rect.fromLTWH(300, 20, 120, 24), 4);
+      final p = _popUp(const Rect.fromLTWH(300, 20, 120, 28), 4);
       expect(p.flipped, isFalse);
       expect(p.top, 6);
-      expect(p.scroll, 6 - (20 - _rowTop(4)));
+      expect(p.scroll, 6 - (22 - _rowTop(4)));
       expect(p.arrowTop, isTrue);
       expect(p.arrowBottom, isFalse);
       // The selected row stays on the control.
-      expect(p.top - p.scroll + _rowTop(4), 20);
+      expect(p.top - p.scroll + _rowTop(4), 22);
     });
 
     test('the first item near the top may cover the bar: 6 from the edge', () {
-      final p = _popUp(const Rect.fromLTWH(300, 8, 120, 24), 2);
+      final p = _popUp(const Rect.fromLTWH(300, 8, 120, 28), 2);
       expect(p.top, 6);
       expect(p.arrowTop, isTrue);
     });
 
     test('a menu taller than the output scrolls at both ends', () {
       final p = _popUp(
-        const Rect.fromLTWH(300, 400, 120, 24),
+        const Rect.fromLTWH(300, 400, 120, 28),
         20,
         height: 1000,
       );
@@ -121,15 +124,15 @@ void main() {
     test(
       'past the right edge the menu slides left; the vertical alignment stays',
       () {
-        final p = _popUp(const Rect.fromLTWH(940, 300, 120, 24), 2, width: 200);
+        final p = _popUp(const Rect.fromLTWH(940, 300, 120, 28), 2, width: 200);
         expect(p.left, 1000 - 6 - 200);
-        expect(p.top + _rowTop(2), 300);
+        expect(p.top + _rowTop(2), rowOn);
       },
     );
 
     test('the menu stays 6 from the usable area\'s bottom (the Dock)', () {
       final p = _popUp(
-        const Rect.fromLTWH(300, 700, 120, 24),
+        const Rect.fromLTWH(300, 700, 120, 28),
         2,
         bounds: const Rect.fromLTWH(0, 0, 1000, 760),
       );
@@ -145,7 +148,7 @@ void main() {
         width: 116,
         height: 106,
       );
-      expect(p.top, 327);
+      expect(p.top, 331);
       expect(p.left, 295);
       expect(p.flipped, isFalse);
     });
@@ -154,7 +157,7 @@ void main() {
       'without room below it opens above, its bottom on the control\'s top',
       () {
         final p = AmalfiMenuPlacement.pullDown(
-          control: const Rect.fromLTWH(300, 740, 120, 24),
+          control: const Rect.fromLTWH(300, 740, 120, 28),
           bounds: _bounds,
           width: 116,
           height: 106,
@@ -166,7 +169,7 @@ void main() {
 
     test('past the right edge it slides left', () {
       final p = AmalfiMenuPlacement.pullDown(
-        control: const Rect.fromLTWH(950, 300, 120, 24),
+        control: const Rect.fromLTWH(950, 300, 120, 28),
         bounds: _bounds,
         width: 180,
         height: 106,
@@ -238,9 +241,9 @@ void main() {
       final button = tester.getRect(find.byType(AmalfiPopUpButton<int>));
       final menu = tester.getRect(find.byType(AmalfiMenu));
       expect(button.height, 24);
-      expect(menu.left, button.left - 12);
-      // Third row: 5 + 2 * 24 into the menu.
-      expect(menu.top + 5 + 2 * 24, button.top);
+      expect(menu.left, button.left - 11);
+      // Third row: 4 + 2 * 22 into the menu, 2 below the small control's top.
+      expect(menu.top + 4 + 2 * 22, button.top + 2);
       expect(menu.width, button.width);
     });
 
