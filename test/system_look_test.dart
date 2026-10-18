@@ -404,6 +404,48 @@ void main() {
     );
   });
 
+  testWidgets('Larger Text scales the text of an app, not of a bare scope', (
+    tester,
+  ) async {
+    late TextScaler app;
+    late TextScaler bare;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: MediaQuery(
+          data: const MediaQueryData(),
+          child: Column(
+            children: [
+              SilicaAppearanceScope(
+                child: Builder(
+                  builder: (context) {
+                    app = MediaQuery.textScalerOf(context);
+                    return const SizedBox();
+                  },
+                ),
+              ),
+              SystemLookScope(
+                child: Builder(
+                  builder: (context) {
+                    bare = MediaQuery.textScalerOf(context);
+                    return const SizedBox();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(app.scale(10), 10);
+    SilicaSystemLook.apply(const SystemLook(textScale: 1.3));
+    await tester.pump();
+    expect(app.scale(10), closeTo(13, 1e-9));
+    expect(bare.scale(10), 10);
+    expect(SystemLook.fromState(const {'look.textScale': 9.0}).textScale, 1.5);
+    expect(SystemLook.fromState(const {}).textScale, 1.0);
+  });
+
   testWidgets('Reduce Motion turns animations off for the widgets below', (
     tester,
   ) async {

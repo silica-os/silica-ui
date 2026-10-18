@@ -96,6 +96,7 @@ class SystemLook {
     this.reduceTransparency = false,
     this.reduceMotion = false,
     this.increaseContrast = false,
+    this.textScale = 1.0,
   });
 
   /// The accent of the controls.
@@ -134,6 +135,10 @@ class SystemLook {
   /// The high-contrast palette (Settings › Accessibility › Display › Increase Contrast).
   final bool increaseContrast;
 
+  /// The size of the apps' text relative to the design's, 1-1.5 (Settings › Accessibility ›
+  /// Larger Text); applied to the apps by [SilicaAppearanceScope], not to the shell.
+  final double textScale;
+
   /// The look from the daemon's `State()` dictionary (`look.*` keys); a missing or odd value is
   /// the default.
   static SystemLook fromState(Map<Object?, Object?> state) {
@@ -155,6 +160,10 @@ class SystemLook {
       reduceTransparency: get('reduceTransparency') == true,
       reduceMotion: get('reduceMotion') == true,
       increaseContrast: get('increaseContrast') == true,
+      textScale: switch (get('textScale')) {
+        final num n when n.isFinite => n.toDouble().clamp(1.0, 1.5),
+        _ => 1.0,
+      },
       doubleClickMs: switch (get('doubleClickMs')) {
         final num n when n.isFinite => n.round().clamp(150, 1000),
         _ => 300,
@@ -192,7 +201,8 @@ class SystemLook {
       other.doubleClickMs == doubleClickMs &&
       other.reduceTransparency == reduceTransparency &&
       other.reduceMotion == reduceMotion &&
-      other.increaseContrast == increaseContrast;
+      other.increaseContrast == increaseContrast &&
+      other.textScale == textScale;
 
   @override
   int get hashCode => Object.hash(
@@ -210,6 +220,7 @@ class SystemLook {
     reduceTransparency,
     reduceMotion,
     increaseContrast,
+    textScale,
   );
 
   @override
