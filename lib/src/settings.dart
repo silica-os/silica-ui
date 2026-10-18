@@ -161,6 +161,15 @@ class SilicaSettings {
     _subscribe();
   }
 
+  /// Settings in memory that already hold [values] (tests): no read is needed.
+  @visibleForTesting
+  factory SilicaSettings.withValues(Map<String, Object?> values) =>
+      SilicaSettings(backend: MemorySettingsBackend(values))
+        .._raw.addAll({
+          for (final e in values.entries)
+            if (e.value != null) e.key: e.value,
+        });
+
   /// The shared instance, on the daemon.
   static SilicaSettings instance = SilicaSettings();
 
@@ -201,13 +210,24 @@ class SilicaSettings {
 
   void _take(String key, Object? value) {
     if (_disposed) return;
+    final before = _raw[key];
     if (value == null) {
       _raw.remove(key);
     } else {
       _raw[key] = value;
     }
     _notifiers[key]?.value = value;
+    if (!_sameValue(before, value)) {
+      for (final p in List.of(_prefixes)) {
+        if (key.startsWith(p.prefix)) p.fire();
+      }
+    }
   }
+
+  final List<_PrefixListenable> _prefixes = [];
+
+  static bool _sameValue(Object? a, Object? b) =>
+      a == b || (a is List && b is List && listEquals(a, b));
 
   /// The raw value of [key], as the daemon sent it; null before it is known.
   Object? raw(String key) => _raw[key];
@@ -267,6 +287,17 @@ class SilicaSettings {
           ]
         : const [],
   );
+
+  /// The raw values of the keys that start with [prefix] (keys that are set to something other
+  /// than the default, and the static keys read so far), for families of keys such as
+  /// `notifications.apps.<app>.*`.
+  Map<String, Object?> withPrefix(String prefix) => {
+    for (final e in _raw.entries)
+      if (e.key.startsWith(prefix)) e.key: e.value,
+  };
+
+  /// A listenable that fires when any key starting with [prefix] changes, now or later.
+  Listenable watchPrefix(String prefix) => _PrefixListenable(this, prefix);
 
   /// A listenable that fires when any of [keys] changes.
   Listenable watch(Iterable<String> keys) => Listenable.merge([
@@ -390,4 +421,33 @@ class _Converted<T> extends ValueListenable<T> {
   @override
   void removeListener(VoidCallback listener) =>
       _source.removeListener(listener);
+}
+
+/// Fires when a key with the prefix changes (see [SilicaSettings.watchPrefix]).
+class _PrefixListenable extends ChangeNotifier {
+  _PrefixListenable(this._settings, this.prefix);
+
+  final SilicaSettings _settings;
+  final String prefix;
+  bool _attached = false;
+
+  void fire() => notifyListeners();
+
+  @override
+  void addListener(VoidCallback listener) {
+    if (!_attached) {
+      _attached = true;
+      _settings._prefixes.add(this);
+    }
+    super.addListener(listener);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    super.removeListener(listener);
+    if (!hasListeners && _attached) {
+      _attached = false;
+      _settings._prefixes.remove(this);
+    }
+  }
 }

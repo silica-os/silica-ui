@@ -60,6 +60,29 @@ void main() {
     expect(settings.getInt('b', fallback: 0), 6);
   });
 
+  test('families of keys: withPrefix and watchPrefix', () async {
+    final backend = MemorySettingsBackend({
+      'notifications.apps.org.x.Mail.sound': false,
+      'dock.autohide': true,
+    });
+    final settings = SilicaSettings(backend: backend);
+    addTearDown(settings.dispose);
+    await settings.refresh();
+    expect(settings.withPrefix('notifications.apps.'), {
+      'notifications.apps.org.x.Mail.sound': false,
+    });
+    var fired = 0;
+    settings.watchPrefix('notifications.').addListener(() => fired++);
+    backend.emit('dock.autohide', false);
+    expect(fired, 0);
+    backend.emit('notifications.apps.org.y.App.sound', false);
+    expect(fired, 1);
+    backend.emit('notifications.apps.org.y.App.sound', false);
+    expect(fired, 1);
+    backend.emit('notifications.apps.org.y.App.sound', null);
+    expect(fired, 2);
+  });
+
   test('lists, numbers and texts', () async {
     final backend = MemorySettingsBackend({
       'controlcenter.modules': ['wifi:large', 3, 'dnd:small'],
