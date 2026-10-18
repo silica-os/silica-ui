@@ -205,6 +205,15 @@ void main() {
     expect(args['adjust'], unorderedEquals(['flipX', 'flipY', 'slideX']));
     final popover = tester.widget<AmalfiPopover>(find.byType(AmalfiPopover));
     expect(View.of(tester.element(find.byType(AmalfiPopover))).viewId, 7);
+    // The popup is as big as the popover drawn in it, with the compositor's glass (taller than
+    // with the in-window glass): nothing of it is cut (silica-desktop#238).
+    expect(
+      Size(
+        (args['width'] as num).toDouble(),
+        (args['height'] as num).toDouble(),
+      ),
+      tester.getSize(find.byType(AmalfiPopover)),
+    );
     // It went above: the arrow is on its bottom edge, at the anchor's centre (320 − 280).
     expect(popover.arrowEdge, AmalfiPopoverArrowEdge.bottom);
     expect(popover.arrowOffset, 40);

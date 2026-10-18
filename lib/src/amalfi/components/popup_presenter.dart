@@ -68,9 +68,14 @@ Future<SilicaPopupController?> showAmalfiAsPopup({
     child: AmalfiTheme(brightness: brightness, child: child),
   );
 
+  // Measured as it is drawn: with the compositor's glass (a popover is taller with it than with
+  // the in-window glass), so the popup is not too small for its content (silica-desktop#238).
   final measured = await measureInOverlay(
     context,
-    (c) => themed(builder(c, () {}, null)),
+    (c) => AmalfiGlassBackendScope(
+      backend: AmalfiGlassBackend.compositor,
+      child: themed(builder(c, () {}, null)),
+    ),
     maxSize: _roomOf(view),
     overlay: host,
   );
