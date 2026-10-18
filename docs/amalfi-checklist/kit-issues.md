@@ -107,6 +107,7 @@ layer as before, and the pixel harness no longer leaves the shadow ring out.
 - Readability pass: `Titlebars/Section/Sidebar` is a blur strip (80 % `Surface/Sidebar`, one background blur) with the divider drawn through the bar and the controls at x 1 (`components.md`, sidebar in a split title bar): not built yet, deviated.
 - Readability pass: `Fields/Token` is 64 wide with the 16 pt cross and a 32 label frame (Sketch measures "Travel" 4 narrower than the grid); `Wells/Image Well/Empty/*` Caption hint is a half-point frame (61).
 - Readability pass: Mini segmented text items stay 44 wide at Caption 11; "Three" needs 48 with the 8 pt padding, so the test shortens the label.
+- Settings Tabs (silica-design `befacae0`): `Segments/Control/One 6 Text/*/Pressed` has its Track and Lens scaled by 437/440 (Track x 9.5, 437 wide, Lens 104.5 wide) inside the 456 frame, while the items keep their places; the test compares the items only. The Regular master is 440 wide (72 per segment); the Terminal settings use it widened to 488 (80 per segment, `textItemWidth`).
 
 ## Status Bar (silica-design `1f8b28df`)
 

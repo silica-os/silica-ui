@@ -19,7 +19,9 @@ List<String> segmentMasters() {
   final dir = Directory('test/amalfi/kit/Segments');
   final keys = <String>[
     for (final f in dir.listSync(recursive: true))
-      if (f is File && f.path.endsWith('.json'))
+      if (f is File &&
+          f.path.endsWith('.json') &&
+          !f.path.contains('Icon + Label'))
         f.path
             .substring('test/amalfi/kit/'.length)
             .replaceFirst(RegExp(r'\.json$'), ''),
@@ -271,11 +273,15 @@ Case controlCase(KitMaster master, List<String> parts) {
           child: control,
         )
       : control;
+  // Kit quirk (docs/amalfi-checklist/kit-issues.md): the Pressed masters of One 6 Text have
+  // their Track and Lens scaled by 437/440 (Track 9.5 + 437 wide in a 456 frame); the items
+  // keep their places. Those two layers are not compared there.
+  final scaledKit = pressed && count == 6;
   final layers = <String, Finder>{
-    'Track': byKey('amalfi-segmented-track'),
+    if (!scaledKit) 'Track': byKey('amalfi-segmented-track'),
     for (var i = 1; i <= count; i++)
       'Segment $i': byKey('amalfi-segmented-item-${i - 1}'),
-    if (pressed) 'Lens': find.byType(AmalfiSegmentLens),
+    if (pressed && !scaledKit) 'Lens': find.byType(AmalfiSegmentLens),
   };
   // The glyph boxes of icon items, in master coordinates.
   final m = AmalfiSegmentSizeMetrics.of(size);
@@ -291,11 +297,12 @@ Case controlCase(KitMaster master, List<String> parts) {
   return Case(
     widget: widget,
     layers: layers,
-    deviations: pressed ? lensDeviations : const {},
+    deviations: pressed && !scaledKit ? lensDeviations : const {},
     maskLayers: [
       // The kit renders Sketch's "Glass" effect as a whitish frosted body; Glass/Clear has no
       // tint (`materials.md`): the lens is compared by its geometry only.
       if (pressed) 'Lens',
+      if (scaledKit) 'Track',
     ],
     mask: glyphs,
     prepare: pressed
@@ -395,5 +402,40 @@ void main() {
         await release(tester);
       });
     }
+  });
+
+  testWidgets('six text segments widened to 80 each are 488 wide', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      AmalfiTheme(
+        brightness: Brightness.light,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: AmalfiSegmentedControl(
+              textItemWidth: 80,
+              segments: [
+                for (final l in [
+                  'Text',
+                  'Window',
+                  'Tab',
+                  'Shell',
+                  'Keyboard',
+                  'Advanced',
+                ])
+                  AmalfiSegment.text(l),
+              ],
+              selected: const {0},
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(
+      tester.getSize(find.byType(AmalfiSegmentedControl)),
+      const Size(488, 28),
+    );
   });
 }

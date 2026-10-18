@@ -66,6 +66,7 @@ class AmalfiSegmentedControl extends StatefulWidget {
     this.selection = AmalfiSegmentedSelection.one,
     this.size = AmalfiControlSize.regular,
     this.toolbar = false,
+    this.textItemWidth,
     this.opaque = false,
     this.focusNode,
     this.autofocus = false,
@@ -88,6 +89,11 @@ class AmalfiSegmentedControl extends StatefulWidget {
   /// A control of a toolbar: with [size] large it is 36 high, like the other toolbar items
   /// (`Titlebars/Piece/Segmented`), not 32.
   final bool toolbar;
+
+  /// The least width of every text item, in place of the size's kit width: a control widened
+  /// to fit its window, such as the six profile sub-tabs of the Terminal settings (80 each,
+  /// 488 wide). Items stay wider when a label needs it.
+  final double? textItemWidth;
 
   /// Whether the glass is drawn without blur (see [AmalfiGlass.opaque]).
   final bool opaque;
@@ -414,7 +420,7 @@ class _AmalfiSegmentedControlState extends State<AmalfiSegmentedControl>
     final rtl = Directionality.of(context) == TextDirection.rtl;
 
     // Text items share the widest width.
-    var textWidth = m.textItemWidth;
+    var textWidth = widget.textItemWidth ?? m.textItemWidth;
     for (final s in segments) {
       if (!s.isIcon) {
         final w = AmalfiSegmentItem.preferredWidth(
