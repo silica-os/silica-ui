@@ -67,6 +67,18 @@ class SilicaPopupController {
   /// Whether the popup is still open.
   bool get isOpen => !_closed.isCompleted;
 
+  /// Gives the popup a new size (its content grew or shrank: a popover's Show All…), kept
+  /// where it hangs from its anchor. False when the system cannot (an older Silica).
+  Future<bool> resize(Size size) async {
+    if (!isOpen || size.isEmpty || !size.isFinite) return false;
+    final done = await SilicaWindows.invoke<Object?>('resizePopup', {
+      'viewId': viewId,
+      'width': size.width,
+      'height': size.height,
+    });
+    return done == true;
+  }
+
   /// Closes the popup (and the popups that hang from it).
   Future<void> close() async {
     if (!isOpen) return;

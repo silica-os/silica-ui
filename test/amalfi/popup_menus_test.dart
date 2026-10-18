@@ -227,6 +227,48 @@ void main() {
     );
   });
 
+  testWidgets(
+    'a popover whose content grows asks for a bigger popup (silica-desktop#238)',
+    (tester) async {
+      late BuildContext context;
+      await pumpKitScene(
+        tester,
+        Builder(
+          builder: (c) {
+            context = c;
+            return const SizedBox(width: 400, height: 300);
+          },
+        ),
+      );
+      await offerPopups(tester);
+      final tall = ValueNotifier(false);
+      addTearDown(tall.dispose);
+      showAmalfiPopover(
+        context: context,
+        anchor: const Rect.fromLTWH(100, 20, 40, 20),
+        builder: (context, dismiss) => ValueListenableBuilder<bool>(
+          valueListenable: tall,
+          builder: (context, isTall, _) =>
+              SizedBox(width: 120, height: isTall ? 160 : 60),
+        ),
+      );
+      await settle(tester);
+      final first = opened().single.arguments as Map;
+      final small = tester.getSize(find.byType(AmalfiPopover));
+      expect(first['height'], small.height);
+      expect(calls.where((c) => c.method == 'resizePopup'), isEmpty);
+      // Show All…: the content is 100 pt taller; the popup is asked to follow.
+      tall.value = true;
+      await settle(tester);
+      final resize = calls.where((c) => c.method == 'resizePopup').single;
+      expect(resize.arguments, {
+        'viewId': 7,
+        'width': small.width,
+        'height': small.height + 100,
+      });
+    },
+  );
+
   testWidgets('SilicaPopups.show: the call and what it returns', (
     tester,
   ) async {

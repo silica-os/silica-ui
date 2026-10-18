@@ -6,6 +6,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show FlutterView;
 
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../popups.dart';
@@ -112,8 +114,15 @@ Future<SilicaPopupController?> showAmalfiAsPopup({
             child: themed(
               Align(
                 alignment: Alignment.topLeft,
-                child: Builder(
-                  builder: (c) => builder(c, popup.close, popup.placement),
+                // Its content can change size after it opened (a popover's Show All…): the
+                // popup follows it, so nothing is cut (silica-desktop#238).
+                child: _FollowSize(
+                  maxSize: _roomOf(view),
+                  initial: size,
+                  onSize: popup.resize,
+                  child: Builder(
+                    builder: (c) => builder(c, popup.close, popup.placement),
+                  ),
                 ),
               ),
             ),
@@ -155,4 +164,71 @@ class _PopupLifeState extends State<_PopupLife> {
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+/// Lays [child] out at its natural size within [maxSize] (not the popup's current size) and
+/// tells [onSize] when that size, rounded up, changes from what the popup has.
+class _FollowSize extends SingleChildRenderObjectWidget {
+  const _FollowSize({
+    required this.maxSize,
+    required this.initial,
+    required this.onSize,
+    required super.child,
+  });
+
+  final Size maxSize;
+  final Size initial;
+  final ValueChanged<Size> onSize;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFollowSize(maxSize, initial, onSize);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderFollowSize renderObject,
+  ) {
+    renderObject
+      ..maxSize = maxSize
+      ..onSize = onSize;
+  }
+}
+
+class _RenderFollowSize extends RenderProxyBox {
+  _RenderFollowSize(this._maxSize, this._reported, this.onSize);
+
+  Size _maxSize;
+  set maxSize(Size value) {
+    if (value == _maxSize) return;
+    _maxSize = value;
+    markNeedsLayout();
+  }
+
+  /// The size the popup has, or was last asked for.
+  Size _reported;
+  ValueChanged<Size> onSize;
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    child.layout(
+      BoxConstraints(maxWidth: _maxSize.width, maxHeight: _maxSize.height),
+      parentUsesSize: true,
+    );
+    size = constraints.constrain(child.size);
+    final wanted = Size(
+      child.size.width.ceilToDouble(),
+      child.size.height.ceilToDouble(),
+    );
+    if (wanted != _reported && !wanted.isEmpty) {
+      _reported = wanted;
+      // Not during layout: after the frame.
+      SchedulerBinding.instance.addPostFrameCallback((_) => onSize(wanted));
+    }
+  }
 }
