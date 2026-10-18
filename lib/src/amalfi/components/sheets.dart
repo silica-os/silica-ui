@@ -4,3 +4,4 @@
 // The widgets live under `sheets/` and are exported from here.
 
 export 'sheets/sheet.dart';
+export 'sheets/sheet_route.dart';

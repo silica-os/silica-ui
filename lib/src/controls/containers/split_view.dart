@@ -12,6 +12,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../double_tap.dart';
 import 'common.dart';
 
 enum SplitDividerStyle { none, thin, thick }
@@ -310,25 +311,28 @@ class _SplitViewState extends State<SplitView>
                     cursor: _horizontal
                         ? SystemMouseCursors.resizeLeftRight
                         : SystemMouseCursors.resizeUpDown,
-                    child: GestureDetector(
-                      key: const ValueKey('split divider'),
-                      behavior: HitTestBehavior.opaque,
-                      dragStartBehavior: DragStartBehavior.down,
-                      onPanStart: (d) {
-                        final box = context.findRenderObject() as RenderBox?;
-                        if (box != null) {
-                          _start(box.globalToLocal(d.globalPosition));
-                        }
-                      },
-                      onPanUpdate: (d) {
-                        final box = context.findRenderObject() as RenderBox?;
-                        if (box != null) {
-                          _drag(box.globalToLocal(d.globalPosition));
-                        }
-                      },
-                      onPanEnd: (_) => _release(),
-                      onPanCancel: _release,
+                    child: SilicaDoubleTap(
                       onDoubleTap: () => _setCollapsed(!_collapsed),
+                      behavior: HitTestBehavior.opaque,
+                      child: GestureDetector(
+                        key: const ValueKey('split divider'),
+                        behavior: HitTestBehavior.opaque,
+                        dragStartBehavior: DragStartBehavior.down,
+                        onPanStart: (d) {
+                          final box = context.findRenderObject() as RenderBox?;
+                          if (box != null) {
+                            _start(box.globalToLocal(d.globalPosition));
+                          }
+                        },
+                        onPanUpdate: (d) {
+                          final box = context.findRenderObject() as RenderBox?;
+                          if (box != null) {
+                            _drag(box.globalToLocal(d.globalPosition));
+                          }
+                        },
+                        onPanEnd: (_) => _release(),
+                        onPanCancel: _release,
+                      ),
                     ),
                   ),
                 ),
