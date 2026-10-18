@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Added (silica-desktop#236):** `SilicaSettings` (client of `dev.frascella.Silica.Settings1`): a
+  `ValueListenable` per key (`boolean`, `integer`, `number`, `text`, `enumeration`, `texts`,
+  `numbers`), `set`/`setMany`/`reset`, live through the `Changed` signal; `MemorySettingsBackend`
+  for tests.
 - **Changed (silica-desktop#226):** `IconAppearance.clearDark` and the `clear-dark` rendered key are back
   (service word 5; the system Clear style at night asks for it). The app icon body is the Sketch
   outline of silica-icons (`tools/body.svg`: radius 214, smoothing 0.6) instead of a superellipse.
