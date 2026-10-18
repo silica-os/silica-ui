@@ -43,6 +43,8 @@ final class AmalfiTextToken {
     required this.size,
     required this.lineHeight,
     required this.weight,
+    this.tracking = 0,
+    this.features = const [],
     required this.colorTokens,
   });
 
@@ -61,13 +63,21 @@ final class AmalfiTextToken {
   /// Font weight.
   final FontWeight weight;
 
+  /// Tracking in points (the kit's character spacing), added after every character; 0: the
+  /// font's own spacing.
+  final double tracking;
+
+  /// OpenType features by tag (`tnum`: tabular figures).
+  final List<String> features;
+
   /// The colour tokens the kit pairs with this style (`Text/Primary`, `Accent/Amalfi`, …),
-  /// to be resolved with `AmalfiColors.byName`.
+  /// to be resolved with `AmalfiColors.byName`. `On Photo` is not a token: white ink straight
+  /// on the wallpaper (the lock screen).
   final List<String> colorTokens;
 
   /// The style as a [TextStyle], in [color] (none: inherited). The extra line height is split
-  /// evenly above and below the glyphs, as in the kit. The tokens give no tracking, so the
-  /// font's own spacing applies.
+  /// evenly above and below the glyphs, as in the kit. Without [tracking] the font's own
+  /// spacing applies.
   TextStyle style({Color? color}) => TextStyle(
     fontFamily: family,
     package: 'silica_ui',
@@ -75,6 +85,10 @@ final class AmalfiTextToken {
     height: lineHeight == null ? null : lineHeight! / size,
     leadingDistribution: TextLeadingDistribution.even,
     fontWeight: weight,
+    letterSpacing: tracking == 0 ? null : tracking,
+    fontFeatures: features.isEmpty
+        ? null
+        : [for (final f in features) FontFeature(f)],
     color: color,
   );
 }
@@ -176,6 +190,10 @@ final class AmalfiGlassMaterial {
     required this.specularHighlights,
     required this.brightnessLight,
     required this.brightnessDark,
+    this.increaseContrastLight,
+    this.increaseContrastDark,
+    this.reduceTransparencyLight,
+    this.reduceTransparencyDark,
   });
 
   /// The material's name in `tokens.json` (`Glass/Regular`).
@@ -243,6 +261,161 @@ final class AmalfiGlassMaterial {
   /// The rim light's colour in [brightness].
   Color rimLight(Brightness brightness) =>
       brightness == Brightness.dark ? rimLightDark : rimLightLight;
+
+  /// The material's own Increase Contrast treatment, light appearance; null: none.
+  final AmalfiGlassVariant? increaseContrastLight;
+
+  /// The material's own Increase Contrast treatment, dark appearance; null: none.
+  final AmalfiGlassVariant? increaseContrastDark;
+
+  /// The material's own Reduce Transparency treatment, light appearance; null: none.
+  final AmalfiGlassVariant? reduceTransparencyLight;
+
+  /// The material's own Reduce Transparency treatment, dark appearance; null: none.
+  final AmalfiGlassVariant? reduceTransparencyDark;
+
+  /// The Increase Contrast treatment in [brightness]; null: the material has none.
+  AmalfiGlassVariant? increaseContrast(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? increaseContrastDark
+      : increaseContrastLight;
+
+  /// The Reduce Transparency treatment in [brightness]; null: the material has none.
+  AmalfiGlassVariant? reduceTransparency(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? reduceTransparencyDark
+      : reduceTransparencyLight;
+}
+
+/// An accessibility treatment of a glass material (`Glass/Lock Increase Contrast`, `Glass/Lock
+/// Reduce Transparency`): an opaque fill with its rims, in one appearance.
+@immutable
+final class AmalfiGlassVariant {
+  const AmalfiGlassVariant({
+    required this.fill,
+    required this.rimInside,
+    required this.rimLight,
+    required this.backgroundBlur,
+    required this.saturation,
+  });
+
+  /// The fill (opaque or nearly).
+  final Color fill;
+
+  /// The 1 pt rim inside the shape.
+  final Color rimInside;
+
+  /// The rim light along the top edge; null: none.
+  final Color? rimLight;
+
+  /// The background blur that shows only at the antialiased edge; 0: none.
+  final double backgroundBlur;
+
+  /// The saturation of that blur (1 = unchanged).
+  final double saturation;
+}
+
+/// A glass clipped to glyphs (`Glass/Clock`, the lock screen's digits): the backdrop blurred,
+/// saturated and brightened through the glyphs, a fill, a line inside and a rim outside.
+@immutable
+final class AmalfiGlyphGlass {
+  const AmalfiGlyphGlass({
+    required this.name,
+    required this.backgroundBlur,
+    required this.saturation,
+    required this.brightness,
+    required this.refraction,
+    required this.specularHighlights,
+    required this.fill,
+    required this.lineInsideWidth,
+    required this.lineInside,
+    required this.rimOutsideWidth,
+    required this.rimOutsideLight,
+    required this.rimOutsideDark,
+    required this.reduceTransparencyFill,
+    required this.increaseContrastFill,
+    required this.increaseContrastRimWidth,
+    required this.increaseContrastRim,
+  });
+
+  /// The material's name in `tokens.json` (`Glass/Clock`).
+  final String name;
+
+  /// The blur of the backdrop seen through the glyphs, in points.
+  final double backgroundBlur;
+
+  /// The saturation factor of that backdrop.
+  final double saturation;
+
+  /// The brightness factor of that backdrop.
+  final double brightness;
+
+  /// The edge refraction.
+  final AmalfiRefraction refraction;
+
+  /// Whether the glyphs' edges draw specular highlights.
+  final bool specularHighlights;
+
+  /// The fill over the backdrop.
+  final Color fill;
+
+  /// The width of the bright line just inside the outline.
+  final double lineInsideWidth;
+
+  /// The bright line's colour.
+  final Color lineInside;
+
+  /// The width of the dark rim just outside the outline.
+  final double rimOutsideWidth;
+
+  /// The dark rim's colour, light appearance.
+  final Color rimOutsideLight;
+
+  /// The dark rim's colour, dark appearance.
+  final Color rimOutsideDark;
+
+  /// Reduce Transparency: the fill, no glass and no line inside; the rim stays.
+  final Color reduceTransparencyFill;
+
+  /// Increase Contrast: the solid fill, no glass and no line inside.
+  final Color increaseContrastFill;
+
+  /// Increase Contrast: the width of the rim outside.
+  final double increaseContrastRimWidth;
+
+  /// Increase Contrast: the rim's colour.
+  final Color increaseContrastRim;
+
+  /// The rim outside in [brightness].
+  Color rimOutside(Brightness brightness) =>
+      brightness == Brightness.dark ? rimOutsideDark : rimOutsideLight;
+}
+
+/// A scrim: a vertical gradient over a picture, under everything else (`Scrim/Lock Light`).
+@immutable
+final class AmalfiScrim {
+  const AmalfiScrim({
+    required this.name,
+    required this.stops,
+    required this.colors,
+  });
+
+  /// The scrim's name in `tokens.json`.
+  final String name;
+
+  /// The stop positions, 0 (top) to 1 (bottom).
+  final List<double> stops;
+
+  /// The colour at each stop.
+  final List<Color> colors;
+
+  /// The gradient, top to bottom.
+  LinearGradient get gradient => LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: colors,
+    stops: stops,
+  );
 }
 
 /// A spring motion token: a [SpringDescription] (mass 1) with the response and damping ratio

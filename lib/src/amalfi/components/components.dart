@@ -16,6 +16,7 @@ export 'segmented.dart';
 export 'sheets.dart';
 export 'sidebars.dart';
 export 'sliders.dart';
+export 'status_bar.dart';
 export 'steppers.dart';
 export 'titlebars.dart';
 export 'toggles.dart';
