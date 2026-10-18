@@ -235,4 +235,66 @@ void main() {
     await pump(Brightness.dark);
     expect(drawn, ToolbarColors.dark.icon);
   });
+
+  testWidgets(
+    'a drag area limited to a band moves the window only from the band',
+    (tester) async {
+      // A whole window with full-size content, as SilicaWindowHost wraps it (silica-ui#101):
+      // the app draws no drag area of its own.
+      await tester.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: WindowDragArea(
+            band: toolbarHeight,
+            child: ColoredBox(color: Color(0xFF202020)),
+          ),
+        ),
+      );
+      Future<void> drag(Offset from) async {
+        final gesture = await tester.startGesture(
+          from,
+          kind: PointerDeviceKind.mouse,
+        );
+        await gesture.moveBy(const Offset(40, 0));
+        await gesture.up();
+        await tester.pump(const Duration(milliseconds: 600));
+      }
+
+      // Below the band: the content, not a move.
+      await drag(const Offset(200, 120));
+      expect(calls.map((c) => c.method), isNot(contains('startMove')));
+      // In the band: the window moves.
+      await drag(const Offset(200, 26));
+      expect(calls.map((c) => c.method), contains('startMove'));
+    },
+  );
+
+  testWidgets('a drag area inside the band takes the press first', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: WindowDragArea(
+          band: toolbarHeight,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: toolbarHeight,
+              child: WindowDragArea(child: SizedBox.expand()),
+            ),
+          ),
+        ),
+      ),
+    );
+    final gesture = await tester.startGesture(
+      const Offset(200, 26),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(40, 0));
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 600));
+    // One move, from the inner area.
+    expect(calls.where((c) => c.method == 'startMove'), hasLength(1));
+  });
 }

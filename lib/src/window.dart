@@ -184,9 +184,17 @@ enum TitleBarDoubleClick { zoom, minimize, none }
 /// The decision is made at the press by hit-testing, so controls need no opt-out. The move
 /// itself is the client request (`xdg_toplevel.move` with the press serial), as xdg-shell
 /// intends; Ossido does not start moves on its own in the toolbar.
+///
+/// [band] limits the area to its top `band` points: [SilicaWindowHost] wraps every window
+/// opened with full-size content ([SilicaWindows.openWindow] with `toolbarHeight`) in one, so
+/// the toolbar band of a settings or info window moves it even when the app draws no drag area
+/// of its own (silica-ui#101). A drag area inside the band takes the press first.
 class WindowDragArea extends StatefulWidget {
-  const WindowDragArea({super.key, required this.child});
+  const WindowDragArea({super.key, this.band, required this.child});
   final Widget child;
+
+  /// The height of the band at the top that moves the window; null: the whole area.
+  final double? band;
 
   @override
   State<WindowDragArea> createState() => _WindowDragAreaState();
@@ -195,10 +203,17 @@ class WindowDragArea extends StatefulWidget {
 class _WindowDragAreaState extends State<WindowDragArea> {
   final GlobalKey _content = GlobalKey();
 
-  /// Whether the press lands on a widget inside the content that handles pointers.
+  /// Whether the press lands on a widget inside the content that handles pointers, or
+  /// below the [WindowDragArea.band]: it does not move the window.
   bool _onControl(PointerDownEvent event) {
     final root = _content.currentContext?.findRenderObject();
     if (root == null) return false;
+    final band = widget.band;
+    if (band != null) {
+      if (root is! RenderBox || !root.hasSize) return true;
+      final local = root.globalToLocal(event.position);
+      if (local.dy < 0 || local.dy >= band) return true;
+    }
     final result = HitTestResult();
     WidgetsBinding.instance.hitTestInView(result, event.position, event.viewId);
     for (final entry in result.path) {

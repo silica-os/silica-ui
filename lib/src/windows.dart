@@ -1,7 +1,9 @@
 // Several windows in one app (silica-desktop#146): Get Info, a compose window, File › New
 // Window, one window per document. Every window is a view of the app's one Flutter engine,
 // with its own xdg_toplevel in Ossido (title, buttons, glass, resizing), so the windows share
-// the app's state and its Dart isolate.
+// the app's state and its Dart isolate. Each is a window of its own (silica-ui#101): it moves,
+// stacks and takes the focus by itself; only `parent` ties it to another window. With
+// full-size content (`toolbarHeight`) the host makes its toolbar band move it.
 //
 // The app must be started with `--multi-window` (its `.desktop` entry). Without it, or outside
 // Silica, `SilicaWindows.open` returns null and the app can fall back to a sheet or a popover.
@@ -38,7 +40,8 @@ enum SilicaWindowKind { regular, utility }
 
 /// A window of the app other than its main one, from [SilicaWindows.open].
 class SilicaWindowController {
-  SilicaWindowController._(this.view, this.builder);
+  SilicaWindowController._(this.view, this.builder, double? toolbarHeight)
+    : _toolbar = ValueNotifier(toolbarHeight ?? 0);
 
   /// The window's view in the engine; [viewId] names the window on `silica/window`.
   final FlutterView view;
@@ -73,8 +76,16 @@ class SilicaWindowController {
       false;
 
   /// Full-size content with the window's own toolbar this high (0: Ossido's title bar).
-  Future<bool> setFullSizeContent(double toolbar) =>
-      SilicaWindow.setFullSizeContent(toolbar, viewId: viewId);
+  Future<bool> setFullSizeContent(double toolbar) async {
+    final done = await SilicaWindow.setFullSizeContent(toolbar, viewId: viewId);
+    if (done) _toolbar.value = toolbar;
+    return done;
+  }
+
+  /// The height of the window's own toolbar (full-size content), 0 under Ossido's title bar:
+  /// [SilicaWindowHost] makes that band move the window.
+  ValueListenable<double> get toolbarHeight => _toolbar;
+  final ValueNotifier<double> _toolbar;
 
   /// The window size, in logical pixels.
   Future<bool> setSize(Size size) => SilicaWindow.setSize(size, viewId: viewId);
@@ -162,7 +173,7 @@ abstract final class SilicaWindows {
     if (id is! int) return null;
     final view = _viewWithId(id);
     if (view == null) return null;
-    final controller = SilicaWindowController._(view, builder);
+    final controller = SilicaWindowController._(view, builder, toolbarHeight);
     _open.value = [..._open.value, controller];
     // The app-wide appearance override, when no scope of the app sends its own.
     if (activeAppearanceScopes == 0 &&
@@ -311,7 +322,10 @@ class SilicaWindowHost extends StatelessWidget {
                       View(
                         key: ValueKey(window.viewId),
                         view: window.view,
-                        child: Builder(builder: window.builder),
+                        child: _ToolbarBand(
+                          window: window,
+                          child: Builder(builder: window.builder),
+                        ),
                       ),
                   ],
                 ),
@@ -319,6 +333,25 @@ class SilicaWindowHost extends StatelessWidget {
         ),
         child: child,
       );
+}
+
+/// A window of its own, not a panel of the main one (silica-ui#101): with full-size content
+/// its toolbar band moves it ([WindowDragArea] limited to the band), whatever the app draws
+/// there. Under Ossido's title bar Ossido moves it.
+class _ToolbarBand extends StatelessWidget {
+  const _ToolbarBand({required this.window, required this.child});
+
+  final SilicaWindowController window;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<double>(
+    valueListenable: window.toolbarHeight,
+    // The same tree either way, so the window's state survives a change of toolbar.
+    builder: (context, height, child) =>
+        WindowDragArea(band: height > 0 ? height : 0, child: child!),
+    child: child,
+  );
 }
 
 /// Marks the outermost [SilicaWindowHost].

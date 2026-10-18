@@ -278,4 +278,24 @@ void main() {
       );
     },
   );
+
+  testWidgets('a window remembers the height of its own toolbar', (
+    tester,
+  ) async {
+    answer = (call) => call.method == 'openWindow' ? 0 : true;
+    final window = await SilicaWindows.openWindow(
+      title: 'Settings',
+      size: const Size(400, 300),
+      toolbarHeight: 52,
+      builder: content,
+    );
+    // SilicaWindowHost makes that band move the window (silica-ui#101).
+    expect(window!.toolbarHeight.value, 52);
+    expect(await window.setFullSizeContent(0), isTrue);
+    expect(window.toolbarHeight.value, 0);
+    // Refused by the embedder: unchanged.
+    answer = (_) => false;
+    expect(await window.setFullSizeContent(38), isFalse);
+    expect(window.toolbarHeight.value, 0);
+  });
 }
