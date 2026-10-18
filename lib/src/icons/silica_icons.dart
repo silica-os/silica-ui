@@ -89,6 +89,10 @@ class IconText {
     required this.box,
     this.maxWidth,
     this.upper = false,
+    this.lower = false,
+    this.font = 'Inter',
+    this.format = '',
+    this.refresh = 'midnight',
   });
 
   final double size;
@@ -101,6 +105,15 @@ class IconText {
   final Rect box;
   final double? maxWidth;
   final bool upper;
+  final bool lower;
+  final String font;
+
+  /// Month style of a calendar month: `short` (three letters), `long` or `narrow`; empty for a
+  /// day or the full name (older icons).
+  final String format;
+
+  /// `midnight`: redrawn at local midnight; `never`.
+  final String refresh;
 }
 
 /// Content updated at runtime.
@@ -155,7 +168,12 @@ class DynamicLayer {
     this.minSize = 0,
     this.clearMode = 'ramp',
     this.tintedMode = 'ramp',
+    this.text,
   });
+
+  /// The text a calendar layer draws live (`calendar-month`, `calendar-day`) instead of its SVG,
+  /// which is the text at the design pose (OCT 16), for the fallback.
+  final IconText? text;
 
   /// The layer's SVG on the 1024 canvas (drawn pointing to 12 for a hand).
   final IconLayer layer;
@@ -335,6 +353,10 @@ LayeredIcon? _parseFormat2(String dir, Map json) {
         .where((u) => u.name == dyn['unit'])
         .firstOrNull;
     if (kind == DynamicKind.clockHand && unit == null) return null;
+    final isText =
+        kind == DynamicKind.calendarMonth || kind == DynamicKind.calendarDay;
+    final text = isText ? _parseText(dyn) : null;
+    if (isText && text == null) return null;
     final pivot = dyn['pivot'];
     final px = pivot is List && pivot.length == 2 ? number(pivot[0]) : null;
     final py = pivot is List && pivot.length == 2 ? number(pivot[1]) : null;
@@ -347,6 +369,7 @@ LayeredIcon? _parseFormat2(String dir, Map json) {
         minSize: number(item['min_size']) ?? 0,
         clearMode: mode(item['clear']),
         tintedMode: mode(item['tinted']),
+        text: text,
       ),
     );
   }
@@ -461,6 +484,10 @@ IconText? _parseText(Object? raw) {
     box: Rect.fromLTWH(b[0]!, b[1]!, b[2]!, b[3]!),
     maxWidth: number(raw['max_width']),
     upper: raw['case'] == 'upper',
+    lower: raw['case'] == 'lower',
+    font: raw['font'] is String ? raw['font'] as String : 'Inter',
+    format: raw['format'] is String ? raw['format'] as String : '',
+    refresh: raw['refresh'] == 'never' ? 'never' : 'midnight',
   );
 }
 

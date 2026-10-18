@@ -224,6 +224,18 @@ String monthName(int month, String? language) {
   return names[(month - 1).clamp(0, 11)];
 }
 
+/// The label of `month` (1–12) in `language` for a calendar `format`: `short` the first three
+/// letters (OCT, OTT once upper-cased), `narrow` the first, anything else the full name.
+String monthLabel(int month, String? language, String format) {
+  final name = monthName(month, language);
+  final letters = name.characters;
+  return switch (format) {
+    'short' => letters.take(3).toString(),
+    'narrow' => letters.take(1).toString(),
+    _ => name,
+  };
+}
+
 /// The outline of the body in the unit square: the Sketch `Icon / Background` Body path (smooth
 /// corners, radius 214 on 824, smoothing 0.6; `tools/body.svg` of silica-icons) as a move, lines
 /// (two numbers) and cubics (six numbers).
@@ -994,7 +1006,8 @@ class _ServiceAppState extends State<_ServiceApp> {
 /// hand turns around its pivot (hours (h mod 12 + m/60 + s/3600) × 30°, minutes (m + s/60) × 6°,
 /// seconds s × 6°), the cap stays. Layers whose `min_size` is above [canvas], or whose mode is
 /// `hide` in the look, are left out; the others are recoloured like the foreground (Clear and
-/// Tinted). Calendar text layers are not drawn yet.
+/// Tinted). Calendar layers draw the localized month and the day in their text box (font, size,
+/// weight, tracking, colours, case, format), not their SVG, and refresh at local midnight.
 class _LiveLayers extends StatefulWidget {
   const _LiveLayers({
     required this.layers,
@@ -1029,6 +1042,13 @@ class _LiveLayersState extends State<_LiveLayers> {
   bool get _seconds =>
       widget.layers.any((l) => l.unit == ClockUnit.second && _drawn(l));
 
+  bool get _hands =>
+      widget.layers.any((l) => l.kind == DynamicKind.clockHand && _drawn(l));
+
+  bool get _dates => widget.layers.any(
+    (l) => l.text != null && l.text?.refresh != 'never' && _drawn(l),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -1043,10 +1063,22 @@ class _LiveLayersState extends State<_LiveLayers> {
 
   void _schedule() {
     _timer?.cancel();
-    _timer = Timer.periodic(
-      _seconds ? const Duration(seconds: 1) : const Duration(seconds: 20),
-      (_) => setState(() => _now = DateTime.now()),
-    );
+    _timer = null;
+    if (_hands) {
+      _timer = Timer.periodic(
+        _seconds ? const Duration(seconds: 1) : const Duration(seconds: 20),
+        (_) => setState(() => _now = DateTime.now()),
+      );
+    } else if (_dates) {
+      // Local midnight (a second later, so the clock has certainly turned over).
+      final now = DateTime.now();
+      final midnight = DateTime(now.year, now.month, now.day + 1);
+      _timer = Timer(midnight.difference(now) + const Duration(seconds: 1), () {
+        if (!mounted) return;
+        setState(() => _now = DateTime.now());
+        _schedule();
+      });
+    }
   }
 
   @override
@@ -1070,10 +1102,30 @@ class _LiveLayersState extends State<_LiveLayers> {
     final look = widget.look;
     final k = widget.canvas / canvasSide;
     final filter = foregroundFilter(look, widget.tint);
+    final language =
+        (Localizations.maybeLocaleOf(context) ??
+                WidgetsBinding.instance.platformDispatcher.locale)
+            .languageCode;
     final children = <Widget>[];
     for (final l in widget.layers) {
       if (!_drawn(l)) continue;
-      Widget art = _svg(l.layer.pathFor(dark: look.isDark), widget.canvas);
+      // Calendar text: drawn live from its fields; the layer's SVG is the fallback pose.
+      Widget art = switch ((l.kind, l.text)) {
+        (DynamicKind.calendarMonth, final t?) => Stack(
+          children: [
+            _calendarLine(
+              t,
+              monthLabel(_now.month, language, t.format),
+              k,
+              look.isDark,
+            ),
+          ],
+        ),
+        (DynamicKind.calendarDay, final t?) => Stack(
+          children: [_calendarLine(t, '${_now.day}', k, look.isDark)],
+        ),
+        _ => _svg(l.layer.pathFor(dark: look.isDark), widget.canvas),
+      };
       switch (l.kind) {
         case DynamicKind.clockHand:
           final unit = l.unit;
@@ -1087,7 +1139,7 @@ class _LiveLayersState extends State<_LiveLayers> {
         case DynamicKind.clockCap:
           break;
         case DynamicKind.calendarMonth || DynamicKind.calendarDay:
-          continue;
+          if (l.text == null) continue;
       }
       final keep = look.isClear
           ? l.clearMode == 'keep'
@@ -1219,53 +1271,53 @@ class _CalendarState extends State<_Calendar> {
   @override
   Widget build(BuildContext context) {
     final k = widget.canvas / canvasSide;
-    Widget line(IconText t, String value) {
-      final style =
-          uiText(
-            size: t.size * k,
-            color: widget.dark ? t.darkColor : t.color,
-          ).copyWith(
-            fontWeight: FontWeight.values[(t.weight ~/ 100 - 1).clamp(0, 8)],
-            letterSpacing: t.tracking * k,
-            height: 1,
-          );
-      final width = (t.maxWidth ?? t.box.width) * k;
-      return Positioned(
-        left: t.box.left * k,
-        top: t.box.top * k,
-        width: t.box.width * k,
-        height: t.box.height * k,
-        child: Center(
-          child: SizedBox(
-            width: width,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                t.upper ? value.toUpperCase() : value,
-                style: style,
-                maxLines: 1,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
+    final language =
+        (Localizations.maybeLocaleOf(context) ??
+                WidgetsBinding.instance.platformDispatcher.locale)
+            .languageCode;
     return Stack(
       children: [
-        line(
+        _calendarLine(
           widget.text.month,
-          monthName(
-            _today.month,
-            (Localizations.maybeLocaleOf(context) ??
-                    WidgetsBinding.instance.platformDispatcher.locale)
-                .languageCode,
-          ),
+          monthName(_today.month, language),
+          k,
+          widget.dark,
         ),
-        line(widget.text.day, '${_today.day}'),
+        _calendarLine(widget.text.day, '${_today.day}', k, widget.dark),
       ],
     );
   }
+}
+
+/// A calendar text centred in its box (`k` = canvas / 1024), shrunk to fit its width.
+Widget _calendarLine(IconText t, String value, double k, bool dark) {
+  final style = uiText(size: t.size * k, color: dark ? t.darkColor : t.color)
+      .copyWith(
+        fontWeight: FontWeight.values[(t.weight ~/ 100 - 1).clamp(0, 8)],
+        letterSpacing: t.tracking * k,
+        height: 1,
+      );
+  final width = (t.maxWidth ?? t.box.width) * k;
+  final text = t.upper
+      ? value.toUpperCase()
+      : t.lower
+      ? value.toLowerCase()
+      : value;
+  return Positioned(
+    left: t.box.left * k,
+    top: t.box.top * k,
+    width: t.box.width * k,
+    height: t.box.height * k,
+    child: Center(
+      child: SizedBox(
+        width: width,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(text, style: style, maxLines: 1),
+        ),
+      ),
+    ),
+  );
 }
 
 /// Paints the child twice: first black, blurred and shifted (the shadow), then as it is. A single
