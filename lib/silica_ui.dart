@@ -8,6 +8,7 @@ export 'src/amalfi/amalfi.dart';
 export 'src/appearance.dart' show SilicaAppearance, SilicaAppearanceScope;
 export 'src/app.dart';
 export 'src/dbus.dart';
+export 'src/settings.dart';
 export 'src/share.dart';
 export 'src/system_look.dart';
 export 'src/thumbnails.dart';
