@@ -1538,6 +1538,39 @@ abstract final class AmalfiType {
   static TextStyle wordmark({Color? color}) =>
       wordmarkToken.style(color: color);
 
+  /// `Lock Date`: Inter 32/40, weight 600. Use: lock screen date
+  /// (lock-screen.md); white 84 % over the wallpaper.
+  static const AmalfiTextToken lockDateToken = AmalfiTextToken(
+    name: 'Lock Date',
+    family: 'Inter',
+    size: 32,
+    lineHeight: 40,
+    weight: FontWeight.w600,
+    colorTokens: ['On Photo'],
+  );
+
+  /// `Lock Date` in [color] (none: inherited).
+  static TextStyle lockDate({Color? color}) =>
+      lockDateToken.style(color: color);
+
+  /// `Lock Clock`: Inter 200/200, weight 600, tracking -6, tnum. Use: lock
+  /// screen time; digits draw about 145 pt (>= the measured 142); Amalfi glass
+  /// digits, see materials.md.
+  static const AmalfiTextToken lockClockToken = AmalfiTextToken(
+    name: 'Lock Clock',
+    family: 'Inter',
+    size: 200,
+    lineHeight: 200,
+    weight: FontWeight.w600,
+    tracking: -6,
+    features: ['tnum'],
+    colorTokens: ['On Photo'],
+  );
+
+  /// `Lock Clock` in [color] (none: inherited).
+  static TextStyle lockClock({Color? color}) =>
+      lockClockToken.style(color: color);
+
   /// Every text style token, in the order of `tokens.json`.
   static const List<AmalfiTextToken> tokens = [
     displayToken,
@@ -1559,6 +1592,8 @@ abstract final class AmalfiType {
     numeral72Token,
     numeral104Token,
     wordmarkToken,
+    lockDateToken,
+    lockClockToken,
   ];
 
   /// The token of the style named [name] (`Title 1`); null when there is none.
@@ -1582,6 +1617,8 @@ abstract final class AmalfiType {
     'Numeral 72' => numeral72Token,
     'Numeral 104' => numeral104Token,
     'Wordmark' => wordmarkToken,
+    'Lock Date' => lockDateToken,
+    'Lock Clock' => lockClockToken,
     _ => null,
   };
 
@@ -1780,6 +1817,13 @@ final class AmalfiShadows {
     ],
   );
 
+  /// `onPhoto`, in both appearances: Light appearance: every text and status
+  /// item drawn straight on the wallpaper (lock screen date, name, hint,
+  /// address, labels, Status Bar Lock Screen context); Dark draws none.
+  static const List<BoxShadow> onPhoto = [
+    BoxShadow(color: Color(0x66000000), offset: Offset(0, 1), blurRadius: 6),
+  ];
+
   /// The shadows of [brightness].
   static AmalfiShadows of(Brightness brightness) => switch (brightness) {
     Brightness.light => light,
@@ -1911,16 +1955,112 @@ abstract final class AmalfiMaterials {
     brightnessDark: 0.98,
   );
 
+  /// `Glass/Lock`.
+  static const AmalfiGlassMaterial lock = AmalfiGlassMaterial(
+    name: 'Glass/Lock',
+    backgroundBlur: 20,
+    saturation: 1.1,
+    tintLight: Color(0x99FFFFFF),
+    tintDark: Color(0x47FFFFFF),
+    rimInsideWidth: 1,
+    rimInsideLight: Color(0x1F000000),
+    rimInsideDark: Color(0x3DFFFFFF),
+    rimLightOffset: Offset(0, 1),
+    rimLightBlur: 1,
+    rimLightLight: Color(0xB3FFFFFF),
+    rimLightDark: Color(0x38FFFFFF),
+    shadowLevel: null,
+    lens: false,
+    refraction: null,
+    specularHighlights: false,
+    brightnessLight: 1,
+    brightnessDark: 1,
+    increaseContrastLight: AmalfiGlassVariant(
+      fill: Color(0xF2FFFFFF),
+      rimInside: Color(0x991D1E21),
+      rimLight: null,
+      backgroundBlur: 20,
+      saturation: 1,
+    ),
+    increaseContrastDark: AmalfiGlassVariant(
+      fill: Color(0xF22A2B30),
+      rimInside: Color(0x99FFFFFF),
+      rimLight: null,
+      backgroundBlur: 20,
+      saturation: 1,
+    ),
+    reduceTransparencyLight: AmalfiGlassVariant(
+      fill: Color(0xFFFFFFFF),
+      rimInside: Color(0x1F000000),
+      rimLight: Color(0xB3FFFFFF),
+      backgroundBlur: 0,
+      saturation: 1,
+    ),
+    reduceTransparencyDark: AmalfiGlassVariant(
+      fill: Color(0xFF5B5C5E),
+      rimInside: Color(0x3DFFFFFF),
+      rimLight: Color(0x38FFFFFF),
+      backgroundBlur: 0,
+      saturation: 1,
+    ),
+  );
+
   /// Every material, in the order of `tokens.json`.
-  static const List<AmalfiGlassMaterial> all = [regular, thick, clear];
+  static const List<AmalfiGlassMaterial> all = [regular, thick, clear, lock];
 
   /// The material named [name] (`Glass/Thick`); null when there is none.
   static AmalfiGlassMaterial? byName(String name) => switch (name) {
     'Glass/Regular' => regular,
     'Glass/Thick' => thick,
     'Glass/Clear' => clear,
+    'Glass/Lock' => lock,
     _ => null,
   };
+}
+
+/// The glass clipped to glyphs (the lock screen clock).
+abstract final class AmalfiGlyphMaterials {
+  /// `Glass/Clock`: lock screen clock digits only (Lock Clock); clipped to the
+  /// glyphs.
+  static const AmalfiGlyphGlass clock = AmalfiGlyphGlass(
+    name: 'Glass/Clock',
+    backgroundBlur: 8,
+    saturation: 1.3,
+    brightness: 1.3,
+    refraction: AmalfiRefraction(
+      distortion: 0.5,
+      depth: 0.6,
+      chromaticAberration: 0.05,
+      magnification: 1,
+    ),
+    specularHighlights: true,
+    fill: Color(0xC2FFFFFF),
+    lineInsideWidth: 1,
+    lineInside: Color(0xCCFFFFFF),
+    rimOutsideWidth: 1,
+    rimOutsideLight: Color(0x52000000),
+    rimOutsideDark: Color(0x52000000),
+    reduceTransparencyFill: Color(0xEBFFFFFF),
+    increaseContrastFill: Color(0xFFFFFFFF),
+    increaseContrastRimWidth: 2,
+    increaseContrastRim: Color(0x66000000),
+  );
+}
+
+/// The scrims: gradients over a picture, under everything else.
+abstract final class AmalfiScrims {
+  /// `Scrim/Lock Light`: Light appearance lock screen, over the dimmed
+  /// wallpaper, under everything else (provisional legibility aid).
+  static const AmalfiScrim lockLight = AmalfiScrim(
+    name: 'Scrim/Lock Light',
+    stops: [0, 0.3, 0.6, 1],
+    colors: [
+      Color(0x33000000),
+      Color(0x00000000),
+      Color(0x00000000),
+      Color(0x59000000),
+    ],
+  );
 }
 
 /// The blur strips: a background blur and a tint, no glass.

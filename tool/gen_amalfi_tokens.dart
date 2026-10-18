@@ -804,6 +804,10 @@ class _Colors {
 
 // Typography ---------------------------------------------------------------------------------
 
+/// Ink names of the text styles that are not colour tokens: `On Photo`, the white of text
+/// drawn straight on the wallpaper (lock-screen.md, status-bar.md).
+const Set<String> _photoInks = {'On Photo'};
+
 void _writeTypography(
   StringBuffer o,
   Map<String, Object?> typography,
@@ -833,6 +837,8 @@ void _writeTypography(
       'size',
       'lineHeight',
       'weight',
+      'tracking',
+      'features',
       'colors',
       'use',
       'note',
@@ -872,7 +878,23 @@ void _writeTypography(
         _string(c, '$path.colors[$i]'),
     ];
     for (final c in colorTokens) {
+      // `On Photo`: white ink straight on the wallpaper (lock-screen.md), not a colour token.
+      if (_photoInks.contains(c)) continue;
       colors.member(c, '$path.colors');
+    }
+    // Tracking in points (Sketch's character spacing); OpenType features by tag.
+    final tracking = style.containsKey('tracking')
+        ? _number(style['tracking'], '$path.tracking')
+        : 0.0;
+    final features = [
+      if (style.containsKey('features'))
+        for (final (i, f) in _list(style['features'], '$path.features').indexed)
+          _string(f, '$path.features[$i]'),
+    ];
+    for (final f in features) {
+      if (!RegExp(r'^[a-z0-9]{4}$').hasMatch(f)) {
+        throw TokenError('$path.features: "$f" is not an OpenType feature tag');
+      }
     }
     final id = _camel(name, path);
     _unique(seen, id, name, path);
@@ -882,7 +904,8 @@ void _writeTypography(
     _doc(
       o,
       '`$name`: $family ${_num(size)}/${lineHeight == null ? 'natural' : _num(lineHeight)}, '
-      'weight ${_num(weight)}.${use == null ? '' : ' Use: $use.'}',
+      'weight ${_num(weight)}${tracking == 0 ? '' : ', tracking ${_num(tracking)}'}'
+      '${features.isEmpty ? '' : ', ${features.join(', ')}'}.${use == null ? '' : ' Use: $use.'}',
     );
     o.writeln('  static const AmalfiTextToken ${id}Token = AmalfiTextToken(');
     o.writeln('    name: ${_dartString(name)},');
@@ -892,6 +915,10 @@ void _writeTypography(
       '    lineHeight: ${lineHeight == null ? 'null' : _num(lineHeight)},',
     );
     o.writeln('    weight: FontWeight.w${_num(weight)},');
+    if (tracking != 0) o.writeln('    tracking: ${_num(tracking)},');
+    if (features.isNotEmpty) {
+      o.writeln('    features: [${features.map(_dartString).join(', ')}],');
+    }
     o.writeln('    colorTokens: [');
     for (final c in colorTokens) {
       o.writeln('      ${_dartString(c)},');
@@ -1154,7 +1181,28 @@ Set<int> _writeShadows(
   Map<String, Object?> shadows,
   _Colors colors,
 ) {
-  _onlyKeys(shadows, {'light', 'dark', 'use'}, 'shadows');
+  // Besides the levels: named shadows of one value for both appearances (`onPhoto`).
+  final named = <(String, String, String?)>[];
+  for (final MapEntry(:key, :value) in shadows.entries) {
+    if (const {'light', 'dark', 'use'}.contains(key)) continue;
+    final path = 'shadows.$key';
+    final s = _object(value, path);
+    _onlyKeys(s, {'color', 'x', 'y', 'blur', 'spread', 'use'}, path);
+    final color = _color(_field(s, 'color', path), '$path.color');
+    final x = s.containsKey('x') ? _number(s['x'], '$path.x') : 0.0;
+    final y = s.containsKey('y') ? _number(s['y'], '$path.y') : 0.0;
+    final blur = _number(_field(s, 'blur', path), '$path.blur');
+    final spread = s.containsKey('spread')
+        ? _number(s['spread'], '$path.spread')
+        : 0.0;
+    named.add((
+      _camel(key, path),
+      'BoxShadow(color: ${_colorLiteral(color)}, '
+          'offset: Offset(${_num(x)}, ${_num(y)}), blurRadius: ${_num(blur)}'
+          '${spread == 0 ? '' : ', spreadRadius: ${_num(spread)}'})',
+      s['use'] == null ? null : _string(s['use'], '$path.use'),
+    ));
+  }
   final use = _object(_field(shadows, 'use', 'shadows'), 'shadows.use');
   final levels = <String, Map<int, String>>{};
   Set<int>? keys;
@@ -1230,6 +1278,11 @@ Set<int> _writeShadows(
     o.writeln('  );');
   }
   o.writeln();
+  for (final (id, literal, u) in named) {
+    _doc(o, '`$id`, in both appearances${u == null ? '' : ': $u'}.');
+    o.writeln('  static const List<BoxShadow> $id = [$literal];');
+    o.writeln();
+  }
   _doc(o, 'The shadows of [brightness].');
   o.writeln(
     '  static AmalfiShadows of(Brightness brightness) => switch (brightness) {',
@@ -1392,9 +1445,19 @@ void _writeMaterials(
   );
   o.writeln('abstract final class AmalfiMaterials {');
   final strips = <(String, String, double, double, String, String)>[];
+  final glyphs = StringBuffer();
+  final scrims = StringBuffer();
   for (final MapEntry(key: name, value: raw) in materials.entries) {
     final path = 'materials["$name"]';
     final m = _object(raw, path);
+    if (name.startsWith('Scrim/')) {
+      _writeScrim(scrims, name, m, path);
+      continue;
+    }
+    if (m.containsKey('fill')) {
+      _writeGlyphGlass(glyphs, name, m, path);
+      continue;
+    }
     if (name.startsWith('Blur/')) {
       // A blur strip: background blur and a tint, no glass (refraction, rim, shadow).
       _onlyKeys(m, {
@@ -1449,6 +1512,8 @@ void _writeMaterials(
       'refraction',
       'specularHighlights',
       'brightness',
+      'increaseContrast',
+      'reduceTransparency',
     }, path);
     if (m.containsKey('backgroundBlur') == m.containsKey('blur')) {
       throw TokenError(
@@ -1566,10 +1631,26 @@ void _writeMaterials(
     final lightDark = _colorLiteral(
       _color(_field(rimLight, 'dark', '$path.rimLight'), '$path.rimLight.dark'),
     );
-    agree(insideLight, 'Glass/Rim Dark', 'light');
-    agree(insideDark, 'Glass/Rim Dark', 'dark');
-    agree(lightLight, 'Glass/Rim Light', 'light');
-    agree(lightDark, 'Glass/Rim Light', 'dark');
+    // A material with accessibility variants of its own (`Glass/Lock`) has its own rims.
+    final variants = <String, String>{};
+    for (final kind in const ['increaseContrast', 'reduceTransparency']) {
+      final v = m[kind];
+      if (v == null) continue;
+      final vv = _object(v, '$path.$kind');
+      _onlyKeys(vv, {'light', 'dark', 'note'}, '$path.$kind');
+      for (final scheme in const ['light', 'dark']) {
+        variants['$kind${_pascal(scheme, path)}'] = _variantLiteral(
+          _object(_field(vv, scheme, '$path.$kind'), '$path.$kind.$scheme'),
+          '$path.$kind.$scheme',
+        );
+      }
+    }
+    if (variants.isEmpty) {
+      agree(insideLight, 'Glass/Rim Dark', 'light');
+      agree(insideDark, 'Glass/Rim Dark', 'dark');
+      agree(lightLight, 'Glass/Rim Light', 'light');
+      agree(lightDark, 'Glass/Rim Light', 'dark');
+    }
 
     final id = _camel(
       name.startsWith('Glass/') ? name.substring(6) : name,
@@ -1608,6 +1689,9 @@ void _writeMaterials(
     );
     o.writeln('    brightnessLight: ${_num(brightnessLight)},');
     o.writeln('    brightnessDark: ${_num(brightnessDark)},');
+    for (final MapEntry(:key, :value) in variants.entries) {
+      o.writeln('    $key: $value,');
+    }
     o.writeln('  );');
   }
   o.writeln();
@@ -1632,6 +1716,22 @@ void _writeMaterials(
   o.writeln('  };');
   o.writeln('}');
   o.writeln();
+  if (glyphs.isNotEmpty) {
+    o.writeln('/// The glass clipped to glyphs (the lock screen clock).');
+    o.writeln('abstract final class AmalfiGlyphMaterials {');
+    o.write(glyphs);
+    o.writeln('}');
+    o.writeln();
+  }
+  if (scrims.isNotEmpty) {
+    o.writeln(
+      '/// The scrims: gradients over a picture, under everything else.',
+    );
+    o.writeln('abstract final class AmalfiScrims {');
+    o.write(scrims);
+    o.writeln('}');
+    o.writeln();
+  }
   if (strips.isNotEmpty) {
     o.writeln('/// The blur strips: a background blur and a tint, no glass.');
     o.writeln('abstract final class AmalfiBlurs {');
@@ -1649,6 +1749,186 @@ void _writeMaterials(
     o.writeln('}');
     o.writeln();
   }
+}
+
+/// An `AmalfiGlassVariant(...)` literal from an accessibility variant of a material.
+String _variantLiteral(Map<String, Object?> v, String path) {
+  _onlyKeys(v, {
+    'fill',
+    'rimInside',
+    'rimLight',
+    'backgroundBlur',
+    'saturation',
+  }, path);
+  final rimLight = v['rimLight'];
+  return 'AmalfiGlassVariant('
+      'fill: ${_colorLiteral(_color(_field(v, 'fill', path), '$path.fill'))}, '
+      'rimInside: ${_colorLiteral(_color(_field(v, 'rimInside', path), '$path.rimInside'))}, '
+      'rimLight: ${rimLight == null ? 'null' : _colorLiteral(_color(rimLight, '$path.rimLight'))}, '
+      'backgroundBlur: ${_num(v.containsKey('backgroundBlur') ? _number(v['backgroundBlur'], '$path.backgroundBlur') : 0)}, '
+      'saturation: ${_num(v.containsKey('saturation') ? _number(v['saturation'], '$path.saturation') : 1)})';
+}
+
+/// A glass clipped to glyphs (`Glass/Clock`): blur, refraction, a fill, a line inside and a rim
+/// outside, with its Increase Contrast and Reduce Transparency treatments.
+void _writeGlyphGlass(
+  StringBuffer o,
+  String name,
+  Map<String, Object?> m,
+  String path,
+) {
+  _onlyKeys(m, {
+    'blurType',
+    'backgroundBlur',
+    'saturation',
+    'brightness',
+    'refraction',
+    'specularHighlights',
+    'fill',
+    'lineInside',
+    'rimOutside',
+    'shadow',
+    'reduceTransparency',
+    'increaseContrast',
+    'use',
+  }, path);
+  if (m['blurType'] != 'glass') {
+    throw TokenError('$path.blurType: only "glass" clips to glyphs');
+  }
+  if (m['shadow'] != null)
+    throw TokenError('$path.shadow: glyph glass has none');
+  final r = _object(_field(m, 'refraction', path), '$path.refraction');
+  _onlyKeys(r, {
+    'distortion',
+    'depth',
+    'chromaticAberration',
+  }, '$path.refraction');
+  double n(Map<String, Object?> map, String key, String at) =>
+      _number(_field(map, key, at), '$at.$key');
+  String c(Object? v, String at) => _colorLiteral(_color(v, at));
+  final line = _object(_field(m, 'lineInside', path), '$path.lineInside');
+  _onlyKeys(line, {'width', 'color'}, '$path.lineInside');
+  final rim = _object(_field(m, 'rimOutside', path), '$path.rimOutside');
+  _onlyKeys(rim, {'width', 'light', 'dark'}, '$path.rimOutside');
+  final rt = _object(
+    _field(m, 'reduceTransparency', path),
+    '$path.reduceTransparency',
+  );
+  _onlyKeys(rt, {'fill', 'blur', 'lineInside'}, '$path.reduceTransparency');
+  final ic = _object(
+    _field(m, 'increaseContrast', path),
+    '$path.increaseContrast',
+  );
+  _onlyKeys(ic, {
+    'fill',
+    'blur',
+    'lineInside',
+    'rimOutside',
+  }, '$path.increaseContrast');
+  for (final (map, at) in [
+    (rt, '$path.reduceTransparency'),
+    (ic, '$path.increaseContrast'),
+  ]) {
+    if (map['blur'] != null || map['lineInside'] != null) {
+      throw TokenError('$at: no blur and no line inside');
+    }
+  }
+  final icRim = _object(
+    _field(ic, 'rimOutside', '$path.increaseContrast'),
+    '$path.increaseContrast.rimOutside',
+  );
+  _onlyKeys(icRim, {'width', 'color'}, '$path.increaseContrast.rimOutside');
+  final id = _camel(name.substring(name.indexOf('/') + 1), path);
+  o.writeln();
+  _doc(
+    o,
+    '`$name`${m['use'] == null ? '' : ': ${_string(m['use'], '$path.use')}'}.',
+  );
+  o.writeln('  static const AmalfiGlyphGlass $id = AmalfiGlyphGlass(');
+  o.writeln('    name: ${_dartString(name)},');
+  o.writeln('    backgroundBlur: ${_num(n(m, 'backgroundBlur', path))},');
+  o.writeln('    saturation: ${_num(n(m, 'saturation', path))},');
+  o.writeln('    brightness: ${_num(n(m, 'brightness', path))},');
+  o.writeln(
+    '    refraction: AmalfiRefraction(distortion: ${_num(n(r, 'distortion', '$path.refraction'))}, '
+    'depth: ${_num(n(r, 'depth', '$path.refraction'))}, '
+    'chromaticAberration: ${_num(n(r, 'chromaticAberration', '$path.refraction'))}, magnification: 1),',
+  );
+  o.writeln(
+    '    specularHighlights: ${_boolean(_field(m, 'specularHighlights', path), '$path.specularHighlights')},',
+  );
+  o.writeln('    fill: ${c(_field(m, 'fill', path), '$path.fill')},');
+  o.writeln(
+    '    lineInsideWidth: ${_num(n(line, 'width', '$path.lineInside'))},',
+  );
+  o.writeln(
+    '    lineInside: ${c(_field(line, 'color', '$path.lineInside'), '$path.lineInside.color')},',
+  );
+  o.writeln(
+    '    rimOutsideWidth: ${_num(n(rim, 'width', '$path.rimOutside'))},',
+  );
+  o.writeln(
+    '    rimOutsideLight: ${c(_field(rim, 'light', '$path.rimOutside'), '$path.rimOutside.light')},',
+  );
+  o.writeln(
+    '    rimOutsideDark: ${c(_field(rim, 'dark', '$path.rimOutside'), '$path.rimOutside.dark')},',
+  );
+  o.writeln(
+    '    reduceTransparencyFill: ${c(_field(rt, 'fill', '$path.reduceTransparency'), '$path.reduceTransparency.fill')},',
+  );
+  o.writeln(
+    '    increaseContrastFill: ${c(_field(ic, 'fill', '$path.increaseContrast'), '$path.increaseContrast.fill')},',
+  );
+  o.writeln(
+    '    increaseContrastRimWidth: ${_num(n(icRim, 'width', '$path.increaseContrast.rimOutside'))},',
+  );
+  o.writeln(
+    '    increaseContrastRim: ${c(_field(icRim, 'color', '$path.increaseContrast.rimOutside'), '$path.increaseContrast.rimOutside.color')},',
+  );
+  o.writeln('  );');
+}
+
+/// A scrim (`Scrim/Lock Light`): a vertical linear gradient.
+void _writeScrim(
+  StringBuffer o,
+  String name,
+  Map<String, Object?> m,
+  String path,
+) {
+  _onlyKeys(m, {'type', 'stops', 'use'}, path);
+  if (m['type'] != 'linear gradient, top to bottom') {
+    throw TokenError('$path.type: expected "linear gradient, top to bottom"');
+  }
+  final stops = <String>[];
+  final colors = <String>[];
+  var last = -1.0;
+  for (final (i, raw) in _list(
+    _field(m, 'stops', path),
+    '$path.stops',
+  ).indexed) {
+    final at = '$path.stops[$i]';
+    final stop = _list(raw, at);
+    if (stop.length != 2) throw TokenError('$at: expected [position, colour]');
+    final t = _number(stop[0], '$at[0]');
+    if (t < 0 || t > 1 || t < last) {
+      throw TokenError('$at: positions go from 0 to 1 in order');
+    }
+    last = t;
+    stops.add(_num(t));
+    colors.add(_colorLiteral(_color(stop[1], '$at[1]')));
+  }
+  if (stops.length < 2) throw TokenError('$path.stops: at least two');
+  final id = _camel(name.substring(name.indexOf('/') + 1), path);
+  o.writeln();
+  _doc(
+    o,
+    '`$name`${m['use'] == null ? '' : ': ${_string(m['use'], '$path.use')}'}.',
+  );
+  o.writeln('  static const AmalfiScrim $id = AmalfiScrim(');
+  o.writeln('    name: ${_dartString(name)},');
+  o.writeln('    stops: [${stops.join(', ')}],');
+  o.writeln('    colors: [${colors.join(', ')}],');
+  o.writeln('  );');
 }
 
 // Window controls ----------------------------------------------------------------------------

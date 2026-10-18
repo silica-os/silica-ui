@@ -17,6 +17,7 @@ import 'pages/segmented.dart';
 import 'pages/sheets.dart';
 import 'pages/sidebars.dart';
 import 'pages/sliders.dart';
+import 'pages/status_bar.dart';
 import 'pages/steppers.dart';
 import 'pages/titlebars.dart';
 import 'pages/toggles.dart';
@@ -49,4 +50,5 @@ final List<AmalfiGalleryPage> amalfiGalleryPages = [
   dialogsPage,
   sheetsPage,
   wellsPage,
+  statusBarPage,
 ];

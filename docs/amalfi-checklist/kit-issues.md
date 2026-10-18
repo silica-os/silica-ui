@@ -107,3 +107,13 @@ layer as before, and the pixel harness no longer leaves the shadow ring out.
 - Readability pass: `Titlebars/Section/Sidebar` is a blur strip (80 % `Surface/Sidebar`, one background blur) with the divider drawn through the bar and the controls at x 1 (`components.md`, sidebar in a split title bar): not built yet, deviated.
 - Readability pass: `Fields/Token` is 64 wide with the 16 pt cross and a 32 label frame (Sketch measures "Travel" 4 narrower than the grid); `Wells/Image Well/Empty/*` Caption hint is a half-point frame (61).
 - Readability pass: Mini segmented text items stay 44 wide at Caption 11; "Three" needs 48 with the 8 pt padding, so the test shortens the label.
+
+## Status Bar (silica-design `1f8b28df`)
+
+- `Status Bar/Bar/*/{Increase Contrast,Reduce Transparency}/*`: the `Plate` has corner style 0
+  (circular ends) instead of the smooth capsule of radius 14 that status-bar.md asks for
+  (concentric with the Active capsule, which has style 1). The code draws the smooth capsule;
+  the pixel tests mask the two 14 pt ends.
+- `Status Bar/Item/Clock/Rest`: the label box is 104 (Sketch's measure of
+  `Fri 16 Oct  09:41` rounded to the grid); Inter measures 100 here, and labels hug their text
+  (status-bar.md), so the item is 116 and the menu bar cluster 368. The tests list the deviation.

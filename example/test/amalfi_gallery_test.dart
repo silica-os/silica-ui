@@ -38,7 +38,7 @@ void main() {
       'buttons', 'segmented', 'toggles', 'fields', 'menus', 'popovers', //
       'tooltips', 'sliders', 'steppers', 'progress', 'scrollbars', 'sidebars',
       'lists', 'disclosure', 'group_boxes', 'forms', 'titlebars', 'windows',
-      'alerts', 'dialogs', 'sheets', 'wells',
+      'alerts', 'dialogs', 'sheets', 'wells', 'status_bar',
     ]);
   });
 

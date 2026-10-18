@@ -210,7 +210,22 @@ void main() {
       );
       expect(style?.color, const Color(0xFF123456));
       expect(style?.fontFamily, 'packages/silica_ui/${s['family']}');
+      expect(token.tracking, s['tracking'] == null ? 0 : _n(s['tracking']));
+      expect(token.features, s['features'] ?? const <String>[]);
+      expect(
+        style?.letterSpacing,
+        s['tracking'] == null ? null : _n(s['tracking']),
+      );
     }
+    // The lock screen's clock: Inter 200 Semibold, tracking -6, tabular figures.
+    expect(AmalfiType.lockClock().letterSpacing, -6);
+    expect(AmalfiType.lockClock().fontFeatures, const [FontFeature('tnum')]);
+    expect(AmalfiType.lockClock().fontWeight, FontWeight.w600);
+    expect(AmalfiType.lockDate().fontSize, 32);
+    expect(AmalfiType.lockDate().height, 40 / 32);
+    expect(AmalfiType.lockDateToken.colorTokens, ['On Photo']);
+    expect(AmalfiType.body().letterSpacing, isNull);
+    expect(AmalfiType.body().fontFeatures, isNull);
     expect(AmalfiType.mono().fontFamily, 'packages/silica_ui/JetBrains Mono');
     expect(AmalfiType.body().fontWeight, FontWeight.w400);
     expect(AmalfiType.title1().fontSize, 26);
@@ -326,10 +341,60 @@ void main() {
 
   test('materials', () {
     final materials = _obj(_tokens['materials']);
+    // The glass clipped to glyphs (`Glass/Clock`, it has a fill) is a material of its own.
     expect(
       AmalfiMaterials.all.map((m) => m.name),
-      materials.keys.where((k) => k.startsWith('Glass/')),
+      materials.keys.where(
+        (k) =>
+            k.startsWith('Glass/') && !_obj(materials[k]).containsKey('fill'),
+      ),
     );
+    // Glass/Lock: no refraction, no shadow, and opaque accessibility variants (the Status Bar
+    // plates).
+    final lock = AmalfiMaterials.lock;
+    expect(lock.refraction, isNull);
+    expect(lock.shadowLevel, isNull);
+    expect(lock.backgroundBlur, 20);
+    expect(lock.tint(Brightness.dark), const Color(0x47FFFFFF));
+    expect(lock.tint(Brightness.light), const Color(0x99FFFFFF));
+    expect(lock.rimInside(Brightness.dark), const Color(0x3DFFFFFF));
+    expect(
+      lock.increaseContrast(Brightness.dark)!.fill,
+      const Color(0xF22A2B30),
+    );
+    expect(
+      lock.increaseContrast(Brightness.light)!.rimInside,
+      const Color(0x991D1E21),
+    );
+    expect(
+      lock.reduceTransparency(Brightness.dark)!.fill,
+      const Color(0xFF5B5C5E),
+    );
+    expect(
+      lock.reduceTransparency(Brightness.light)!.rimLight,
+      const Color(0xB3FFFFFF),
+    );
+    expect(AmalfiMaterials.regular.increaseContrast(Brightness.dark), isNull);
+    // Glass/Clock: the lock screen's digits.
+    final clock = AmalfiGlyphMaterials.clock;
+    expect(clock.backgroundBlur, 8);
+    expect(clock.saturation, 1.3);
+    expect(clock.brightness, 1.3);
+    expect(clock.refraction.distortion, 0.5);
+    expect(clock.fill, const Color(0xC2FFFFFF));
+    expect(clock.lineInside, const Color(0xCCFFFFFF));
+    expect(clock.rimOutside(Brightness.dark), const Color(0x52000000));
+    expect(clock.reduceTransparencyFill, const Color(0xEBFFFFFF));
+    expect(clock.increaseContrastRimWidth, 2);
+    expect(clock.increaseContrastRim, const Color(0x66000000));
+    // Scrim/Lock Light: black 20 % at the top to 0 at 30 %, 0 to 60 %, black 35 % at the bottom.
+    expect(AmalfiScrims.lockLight.stops, [0, 0.3, 0.6, 1]);
+    expect(AmalfiScrims.lockLight.colors.first, const Color(0x33000000));
+    expect(AmalfiScrims.lockLight.colors.last, const Color(0x59000000));
+    // shadows.onPhoto: black 40 %, y 1, blur 6.
+    expect(AmalfiShadows.onPhoto, const [
+      BoxShadow(color: Color(0x66000000), offset: Offset(0, 1), blurRadius: 6),
+    ]);
     // The blur strip over a sidebar: no glass, just blur and a tint.
     final strip = _obj(materials['Blur/Sidebar Title Bar']);
     expect(AmalfiBlurs.sidebarTitleBar.backgroundBlur, strip['backgroundBlur']);

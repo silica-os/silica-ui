@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **Added (silica-desktop#243; silica-design 1f8b28df):** the Status Bar (`Status Bar/*`), the status
+  cluster shared by the menu bar and the lock screen: `AmalfiStatusBar` (placement `menuBar` or
+  `lockScreen`, legibility `standard`, `increaseContrast`, `reduceTransparency`, by default from
+  the system look), `AmalfiStatusGlyphItem`, `AmalfiStatusBatteryItem`, `AmalfiStatusInputSourceItem`,
+  `AmalfiStatusClockItem` and the generic `AmalfiStatusItem` (28 tall in a 32 pt hit area, 8 pt
+  padding, glyph 20, label `Body Emphasis`, Active capsule; Return and Space activate), the
+  plates of Increase contrast and Reduce transparency (`AmalfiStatusBarPlate`) and
+  `AmalfiStatusBarStyle` (one ink per context: on-photo white with `shadows.onPhoto` in Light on
+  the lock screen). Kit tests for all 22 masters; gallery page `status_bar`.
+- **Added (silica-desktop#243, tokens.json at silica-desktop 4aefe48):** the text styles
+  `Lock Date` and `Lock Clock` (with `tracking` and OpenType `features`, now carried by
+  `AmalfiTextToken` and its `TextStyle`), `AmalfiShadows.onPhoto`, the material `Glass/Lock`
+  (`AmalfiMaterials.lock`) with its own Increase Contrast and Reduce Transparency treatments
+  (`AmalfiGlassVariant`), the glyph glass `Glass/Clock` (`AmalfiGlyphMaterials.clock`) and the
+  scrim `Scrim/Lock Light` (`AmalfiScrims.lockLight`).
+
 - **Added (silica-desktop#236):** `SilicaSettings` (client of `dev.frascella.Silica.Settings1`): a
   `ValueListenable` per key (`boolean`, `integer`, `number`, `text`, `enumeration`, `texts`,
   `numbers`), `set`/`setMany`/`reset`, live through the `Changed` signal; `MemorySettingsBackend`

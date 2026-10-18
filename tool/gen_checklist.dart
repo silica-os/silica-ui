@@ -46,6 +46,7 @@ const Map<String, List<String>> familySources = {
   'dialogs': ['Dialogs'],
   'sheets': ['Windows/Window/Sheet Attached'],
   'wells': ['Wells'],
+  'status_bar': ['Status Bar'],
 };
 
 /// Kit categories outside the component milestone, and where they belong.
@@ -53,6 +54,8 @@ const Map<String, String> outOfScope = {
   'Apps': 'the app milestones (each `App · <name>` page)',
   'Dock': 'the shell (M4)',
   'Menu Bar': 'the shell (M4)',
+  'Lock Screen': 'the shell (silica-desktop `shell/lib/lock`)',
+  'Icons': 'the icon sets (silica-icons; app icons in each app)',
   'Control Center': 'the shell (M4)',
   'Notifications': 'the shell (M4)',
   'Pointers': 'the shell (M4) (cursor theme)',
