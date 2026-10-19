@@ -139,6 +139,12 @@ class SilicaDBus {
           controller.addError(error, stack);
           await controller.close();
           return;
+        } on TypeError catch (error, stack) {
+          // A handler that answers something else than a subscription id (a test's mock of
+          // the channel written for calls only): no signals either.
+          controller.addError(error, stack);
+          await controller.close();
+          return;
         }
         final subscribed = id;
         if (subscribed == null) return;

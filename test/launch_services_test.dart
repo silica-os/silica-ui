@@ -132,4 +132,14 @@ void main() {
     );
     expect(parse('Other', const []), isNull);
   });
+
+  test('a channel mock that answers lists does not break the signals', () async {
+    messenger.setMockMethodCallHandler(SilicaDBus.channel, (call) async => [1]);
+    final events = <SilicaAppsEvent>[];
+    final sub = SilicaApps.events().listen(events.add);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    await sub.cancel();
+    expect(events, isEmpty);
+  });
 }
