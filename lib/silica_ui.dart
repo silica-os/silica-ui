@@ -10,6 +10,7 @@ export 'src/about.dart'
     show SilicaAppInfo, SilicaAboutMetrics, SilicaAboutPanel, showSilicaAbout;
 export 'src/app.dart';
 export 'src/dbus.dart';
+export 'src/launch_services.dart';
 export 'src/settings.dart';
 export 'src/share.dart';
 export 'src/system_look.dart';
