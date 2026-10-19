@@ -116,4 +116,31 @@ void main() {
       SilicaVolumeError.badSignature,
     );
   });
+
+  test('updates: check and update', () async {
+    messenger.setMockMethodCallHandler(SilicaDBus.channel, (call) async {
+      final args = call.arguments as Map;
+      return switch (args['method']) {
+        'Check' => [
+          [
+            [
+              'dev.example.Hello',
+              'bundle',
+              'Hello',
+              '1.0',
+              '1.1',
+              {'notes': 'Faster.', 'size': 1234},
+            ],
+            ['bad'],
+          ],
+        ],
+        'Update' => ['installed'],
+        _ => const [],
+      };
+    });
+    final updates = (await SilicaUpdates.check())!;
+    expect(updates.single.notes, 'Faster.');
+    expect(updates.single.size, 1234);
+    expect(await SilicaUpdates.update('dev.example.Hello'), 'installed');
+  });
 }

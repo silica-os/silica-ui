@@ -350,3 +350,78 @@ abstract final class SilicaVolumes {
       )
       .handleError((Object _) {});
 }
+
+/// An update found by `Updates1.Check`.
+@immutable
+class SilicaUpdate {
+  const SilicaUpdate({
+    required this.id,
+    required this.kind,
+    required this.name,
+    required this.current,
+    required this.available,
+    this.notes = '',
+    this.size = 0,
+  });
+
+  final String id;
+
+  /// `bundle`, `appimage`, `flatpak` or `system`.
+  final String kind;
+  final String name;
+  final String current;
+  final String available;
+  final String notes;
+  final int size;
+
+  static SilicaUpdate? fromTuple(Object? tuple) {
+    if (tuple is! List || tuple.length < 6) return null;
+    final [id, kind, name, current, available, details, ...] = tuple;
+    if (id is! String || kind is! String || details is! Map) return null;
+    return SilicaUpdate(
+      id: id,
+      kind: kind,
+      name: '$name',
+      current: '$current',
+      available: '$available',
+      notes: details['notes'] is String ? details['notes'] as String : '',
+      size: details['size'] is int ? details['size'] as int : 0,
+    );
+  }
+}
+
+/// Software update (`Updates1`).
+abstract final class SilicaUpdates {
+  static const String path = '/dev/frascella/Silica/Updates1';
+  static const String interface = 'dev.frascella.Silica.Updates1';
+
+  /// Looks for updates; null without the service.
+  static Future<List<SilicaUpdate>?> check() async {
+    try {
+      final reply = await _call(path, interface, 'Check', '', const []);
+      final list = reply.isEmpty ? null : reply.first;
+      return [
+        if (list is List)
+          for (final item in list) ?SilicaUpdate.fromTuple(item),
+      ];
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  /// Installs one update: `installed`, `pending_restart`, `staged`, or `failed: …`.
+  static Future<String> update(String id) async {
+    try {
+      final reply = await _call(path, interface, 'Update', 's', [id]);
+      return reply.isNotEmpty && reply.first is String
+          ? reply.first as String
+          : 'failed';
+    } on PlatformException catch (e) {
+      return 'failed: ${e.message ?? e.code}';
+    } on MissingPluginException {
+      return 'failed';
+    }
+  }
+}
